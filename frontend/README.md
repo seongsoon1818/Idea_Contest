@@ -1,6 +1,6 @@
 # 한성픽 프론트엔드
 
-현재 배포 화면의 **HTML/CSS/JavaScript ES modules 원본**입니다. React/TSX가 아닙니다. 버전 **1.16.75**이며 화면 소스·이미지·자체 호스팅 폰트·회귀 검사 코드를 포함합니다.
+현재 배포 화면의 **HTML/CSS/JavaScript ES modules 원본**입니다. React/TSX가 아닙니다. 버전 **1.16.76**이며 화면 소스·이미지·자체 호스팅 폰트·회귀 검사 코드를 포함합니다.
 
 ## 실행
 
@@ -22,7 +22,7 @@ cd frontend
 npm run check
 ```
 
-920개 인메모리 DOM 흐름 및 데이터·세션·입력 규칙·이미지·추천 검사를 통과했습니다. 실제 브라우저 렌더링/터치/키보드/네트워크/API 검사를 대신하지 않습니다.
+926개 인메모리 DOM 흐름 및 데이터·세션·입력 규칙·이미지·추천 검사를 통과했습니다. 실제 브라우저 렌더링/터치/키보드/네트워크/API 검사를 대신하지 않습니다.
 
 ## 처음 읽는 순서
 
@@ -56,3 +56,7 @@ npm run check
 현재 데모: https://hsupick-campus-idea-contest.luckycrown8.chatgpt.site/
 
 이 GitHub 저장소의 변경이 기존 ChatGPT Sites 배포에 자동 반영되는 CI는 설정하지 않았습니다. 로컬 개발·일반 정적 호스팅에 필요한 파일만 전달했으며 Sites 전용 프로젝트 설정은 포함하지 않았습니다.
+
+## 이미지 URL 표시
+
+DB에 저장한 이미지 URL을 응답의 `images` 배열(권장), `imageUrls` 배열 또는 단일 `imageUrl`로 받으면 상세/공지 내용에서 표시합니다. 클릭 확대·원본 열기·실패 안내를 포함합니다. 실제 API 연결은 아직 필요합니다. [필드 예시와 연결 위치](docs/image-url-integration.md)를 확인하세요.
