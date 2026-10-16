@@ -1243,6 +1243,7 @@ for(const mobile of [true,false]){
  contract.replaceContentRecords([record]);navigate('notices');
  boundaryCheck(()=>assert(mainCards()[0].querySelector('.fact-target').attrs.title.includes('트랙 조건 원문 확인'),'Unknown tracks must not be described as unrestricted'));
  navigate('source/backend-change');$('#modal').scrollTop=45;
+ boundaryCheck(()=>assert.equal($('.notice-images')?.querySelector('img')?.attrs.src,'https://example.com/old.png','The notice content screen must display URL-backed images'));
  const revised={...record,title:'서버에서 바뀐 제목',tracks:[]};contract.replaceContentRecords([revised]);
  boundaryCheck(()=>assert($('.raw-document').textContent.includes('서버에서 바뀐 제목'),'An open source popup must refresh after a same-ID update'));
  boundaryCheck(()=>assert.equal($('#modal').scrollTop,45));
@@ -1251,6 +1252,11 @@ for(const mobile of [true,false]){
  boundaryCheck(()=>assert.equal($('.image-viewer').querySelector('img').attrs.src,'https://example.com/new.png','An open image viewer must use the updated URL'));
  contract.replaceContentRecords([{...revised,images:[]}]);
  boundaryCheck(()=>assert(!$('.image-viewer')&&$('#modal-title').textContent==='서버에서 바뀐 제목','Removing the viewed image must return to its detail'));
+ for(const fields of [{imageUrl:'https://example.com/db-single.png'},{imageUrls:['https://example.com/db-first.png','https://example.com/db-second.png']}]){
+  const mapped={...revised,...fields};delete mapped.images;
+  contract.replaceContentRecords([mapped]);
+  boundaryCheck(()=>assert.equal($('.notice-images')?.querySelector('img')?.attrs.src,fields.imageUrl||fields.imageUrls[0],'Server URL fields must render in the open mobile/desktop detail'));
+ }
  contract.replaceContentRecords(finalSnapshot);
 }
 check(()=>assert.deepEqual(boundaryFailures,[],'Live-update regressions: '+boundaryFailures.join('; ')));

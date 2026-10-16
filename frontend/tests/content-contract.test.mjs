@@ -8,6 +8,10 @@ assert(matchProfile(normal.items[0],{grade:4,tracks:['기업경영트랙','글�
 const sparse=normalizeContentRecords([{id:'uuid-123',type:'program',title:'공개 목록 프로그램',start:'2026-10-01',deadline:'2026-11-01',grades:null,tracks:null}]);
 assert(sparse.ok);assert.deepEqual(sparse.items[0].publicInfo,{});assert.deepEqual(sparse.items[0].preparations,[]);assert.equal(sparse.items[0].programCategory,'unclassified');
 assert(!matchProfile(sparse.items[0],{grade:4,tracks:['기업경영트랙'],interests:['career']}).eligible);
+for(const fields of [{imageUrl:'https://example.com/poster.png'},{imageUrls:['https://example.com/poster.png']},{images:['https://example.com/poster.png']}]){
+ const result=normalizeContentRecords([{...fixture,...fields}]);
+ assert(result.ok);assert.equal(result.items[0].images[0].url,'https://example.com/poster.png','DB URL fields must survive the API read boundary');
+}
 for(const update of [null,{},[null],[{...fixture,id:'bad\"id'}],[{...fixture,deadline:null}],[{...fixture,deadline:'2026-02-30'}],[{...fixture,start:'2026-12-01'}],[{...fixture,tracks:[null]}],[{...fixture,tracks:['트랙']}],[fixture,fixture]]){
  const before=JSON.stringify(ITEMS),result=replaceContentRecords(update);assert(!result.ok);assert(result.issues.length);assert.equal(JSON.stringify(ITEMS),before,'Invalid data must leave the current list intact');
 }
