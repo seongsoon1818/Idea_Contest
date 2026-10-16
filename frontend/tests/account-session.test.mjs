@@ -1,0 +1,34 @@
+import assert from 'node:assert/strict';
+import {getAccountUser,setAccountSession,subscribeAccountSession,logoutAccount} from '../dist/account-session.js';
+assert.equal(getAccountUser(),null);
+assert.throws(()=>setAccountSession({user:{name:'지원'}}),/ID/);
+let notifications=0;const unsubscribe=subscribeAccountSession(()=>notifications++);
+setAccountSession({user:{id:42,name:'이지원'}});
+assert.deepEqual(getAccountUser(),{id:'42',name:'이지원'});
+const copy=getAccountUser();copy.name='changed';assert.equal(getAccountUser().name,'이지원');
+await assert.rejects(logoutAccount(),/계정 서버/);assert(getAccountUser());
+setAccountSession({user:{id:42},logout:async()=>{throw Error('network failed');}});
+await assert.rejects(logoutAccount(),/network failed/);assert(getAccountUser());
+let calls=0,finish;
+setAccountSession({user:{id:42,name:'이지원'},logout:()=>{calls++;return new Promise(resolve=>finish=resolve);}});
+const first=logoutAccount(),second=logoutAccount();assert.equal(first,second);
+await Promise.resolve();assert.equal(calls,1);finish();await first;assert.equal(getAccountUser(),null);
+let finishOld;
+setAccountSession({user:{id:'old'},logout:()=>new Promise(resolve=>finishOld=resolve)});
+const old=logoutAccount();await Promise.resolve();setAccountSession({user:{id:'new'}});finishOld();
+await assert.rejects(old,/계정이 변경/);assert.equal(getAccountUser().id,'new');
+// Re-authenticating the same ID is still a new session.
+let finishPrevious;
+setAccountSession({user:{id:'same'},logout:()=>new Promise(resolve=>finishPrevious=resolve)});
+const previous=logoutAccount();await Promise.resolve();
+setAccountSession({user:{id:'same',name:'새 세션'},logout:async()=>{}});finishPrevious();
+await assert.rejects(previous,/계정이 변경/);assert.equal(getAccountUser().name,'새 세션');
+// An old pending logout must not absorb the new session's logout request.
+let resolveA,resolveB,callsB=0;
+setAccountSession({user:{id:'A'},logout:()=>new Promise(resolve=>resolveA=resolve)});
+const resultA=logoutAccount().then(()=>null,error=>error);await Promise.resolve();
+setAccountSession({user:{id:'B'},logout:()=>{callsB++;return new Promise(resolve=>resolveB=resolve);}});
+const resultB=logoutAccount();await Promise.resolve();assert.equal(callsB,1);
+resolveB();await resultB;assert.equal(getAccountUser(),null);resolveA();assert((await resultA) instanceof Error);
+unsubscribe();const before=notifications;setAccountSession(null);assert.equal(notifications,before);
+console.log('PASS: verified-session UI adapter, concurrent logout, failure retention and changed-account protection');
