@@ -1,5 +1,5 @@
 import {getAccountUser,subscribeAccountSession,logoutAccount} from './account-session.js?v=1.16.73';
-import {noticeImages} from './notice-images.js?v=1.16.54';
+import {noticeImages} from './notice-images.js?v=1.16.76';
 import {passwordError,confirmationError} from './auth-rules.js?v=1.16.54';
 import {ITEMS,CATEGORIES,NOTICE_CATEGORIES,PROGRAM_CATEGORIES,todayDate,statusOf,daysLeft,matchProfile,sourceUrl,normalizeTrack,gradeMatches} from './data.js?v=1.16.73';
 import {TRACK_COLLEGES,trackOptionsForSlot,normalizeTrackSearch,isSelectableTrack} from './tracks.js?v=1.16.54';
@@ -579,19 +579,19 @@ function detail(id){
  const shortcut=`<a class="secondary official-shortcut" href="${esc(officialUrl(i))}" target="_blank" rel="noopener noreferrer">${i.type==='notice'?'공지사항':'스마트자기관리시스템'} 바로가기 ${icon('external')}</a>`;
  openModal(`${modalHead(i.title,'',categoryForItem(i).name)}<div class="modal-content">
   <div class="detail-meta"><span class="badge">${i.type==='notice'?'공지사항':'비교과프로그램'}</span>${badge(i)}</div>
-  ${i.type==='program'?programDetailBody(i):` ${i.subtitle?`<p class="detail-overview">${esc(i.subtitle)}</p>`:''}
+  ${i.type==='program'?programDetailBody(i):` ${i.subtitle?`<p class="detail-overview">${esc(i.subtitle)}</p>`:''}${imageGallery(i)}
   <section class="detail-group"><h3>${icon('user')} 신청 대상</h3><p>${esc(target(i))}</p>${eligibility(i)}</section>
   <section class="detail-group"><h3>${icon('calendar')} 신청·활동 기간</h3><p>신청: ${esc(i.start.replaceAll('-','.'))} ~ ${esc(i.deadline.replaceAll('-','.'))}<br>활동 / 결과 안내: ${esc(i.eventAt?i.eventAt.replaceAll('-','.'):'원문 확인')}</p></section>
   <section class="detail-group"><h3>${icon('exclamation')} 받을 수 있는 혜택</h3><p>${esc(i.benefit||'혜택이 기재되어 있지 않습니다. 원문을 확인해 주세요.')}</p></section>
   <section class="detail-group"><h3>${icon('check')} 미리 준비할 것</h3>${i.preparations.length?`<ul>${i.preparations.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:'<p>준비사항이 기재되어 있지 않습니다. 원문을 확인해 주세요.</p>'}</section>
   <section class="detail-group"><h3>${icon('building')} 운영·신청 안내</h3><p>운영 부서: ${esc(i.department||'원문 확인')}</p>${applicationNotice()}</section>`}
-  ${imageGallery(i)}<div class="original-actions">${shortcut}${mobileLayout.matches||i.type==='program'?'':`<a class="real-source" href="#source/${i.id}" data-action="source" data-id="${i.id}">공지 내용 보기 ${icon('external')}</a>`}</div>
+  ${i.type==='program'?imageGallery(i):''}<div class="original-actions">${shortcut}${mobileLayout.matches||i.type==='program'?'':`<a class="real-source" href="#source/${i.id}" data-action="source" data-id="${i.id}">공지 내용 보기 ${icon('external')}</a>`}</div>
  </div><div class="modal-footer">${mobileLayout.matches?`<button class="primary" data-action="save" data-id="${i.id}" aria-pressed="${saved.has(i.id)}" aria-label="${saved.has(i.id)?'MY PICK 저장 해제':'MY PICK에 저장'}">${icon('bookmark')} MY PICK</button><button class="secondary" data-action="detail-back">뒤로가기</button>`:`<button class="secondary" data-action="toggle-detail-compare" data-id="${i.id}">${icon('compare')} ${compared.has(i.id)?'비교 해제':'AI 비교하기'}</button><button class="primary" data-action="save" data-id="${i.id}" aria-pressed="${saved.has(i.id)}" aria-label="${saved.has(i.id)?'MY PICK 저장 해제':'MY PICK에 저장'}">${icon('bookmark')} MY PICK</button><button class="secondary" data-action="detail-back">뒤로가기</button>`}</div>`,'detail-'+id);
 }
 function source(id){
  const i=ITEMS.find(i=>i.id===id);if(!i)return;if(i.type==='program'){detail(id);return;}
  const raw=`${i.title}\n\n작성 부서: ${i.department}\n등록일: ${i.publishedAt?i.publishedAt.slice(0,10):'(기재 없음)'}\n\n${i.subtitle}\n\n■ 모집 대상\n${target(i)}\n\n■ 신청 기간\n${i.start} ~ ${i.deadline}\n\n■ 활동 / 결과 안내\n${i.eventAt||'(기재 없음)'}\n\n■ 참여 혜택\n${i.benefit||'(기재 없음)'}\n\n■ 제출 / 준비사항\n${i.preparations.length?i.preparations.map((x,n)=>(n+1)+'. '+x).join('\n'):'(기재 없음)'}`;
- openModal(`${modalHead('공지 내용',i.title)}<div class="modal-content"><div class="raw-document">${esc(raw)}</div>${applicationNotice()}<a class="secondary official-shortcut" href="${esc(officialUrl(i))}" target="_blank" rel="noopener noreferrer">${i.type==='notice'?'공지사항':'스마트자기관리시스템'} 바로가기 ${icon('external')}</a></div><div class="modal-footer"><button class="primary" data-action="detail" data-id="${i.id}">상세 정보로 돌아가기</button></div>`,'source-'+id);
+ openModal(`${modalHead('공지 내용',i.title)}<div class="modal-content">${imageGallery(i)}<div class="raw-document">${esc(raw)}</div>${applicationNotice()}<a class="secondary official-shortcut" href="${esc(officialUrl(i))}" target="_blank" rel="noopener noreferrer">${i.type==='notice'?'공지사항':'스마트자기관리시스템'} 바로가기 ${icon('external')}</a></div><div class="modal-footer"><button class="primary" data-action="detail" data-id="${i.id}">상세 정보로 돌아가기</button></div>`,'source-'+id);
 }
 function comparison(){
  if(compared.size<2)return;

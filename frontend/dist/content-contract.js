@@ -1,7 +1,7 @@
 // Read-model boundary only. The API caller maps its response to this schema.
 // No endpoints, credentials, requests or success simulation live in this module.
 import {ITEMS,CATEGORIES,NOTICE_CATEGORIES,PROGRAM_CATEGORIES,normalizeTrack} from './data.js?v=1.16.73';
-import {noticeImages} from './notice-images.js?v=1.16.54';
+import {noticeImages} from './notice-images.js?v=1.16.76';
 const text=value=>typeof value==='string'?value.trim():'';
 const validDate=value=>typeof value==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(value)&&Number.isFinite(Date.parse(value+'T00:00:00Z'))&&new Date(value+'T00:00:00Z').toISOString().slice(0,10)===value;
 const publishedDate=value=>validDate(value)?value+'T00:00:00.000Z':typeof value==='string'&&validDate(value.slice(0,10))&&/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(value)&&Number.isFinite(Date.parse(value))?new Date(value).toISOString():'';
@@ -30,7 +30,7 @@ export function normalizeContentRecords(payload){
    grades:[...new Set((raw.grades||[]).map(Number))],tracks:[...new Set(stringList(raw.tracks).map(normalizeTrack))],
    trackEligibilityKnown:Array.isArray(raw.tracks),start:raw.start,deadline:raw.deadline,publishedAt:publishedDate(raw.publishedAt),eventAt:validDate(raw.eventAt)?raw.eventAt:'',
    benefit:text(raw.benefit),preparations:stringList(raw.preparations),department:text(raw.department),tags:stringList(raw.tags),originalUrl:text(raw.originalUrl)};
-  item.images=noticeImages({...item,images:raw.images});
+  item.images=noticeImages({...raw,title:item.title});
   if(raw.type==='program'){
    // Unknown public metadata stays unknown; do not fill it with richer seed text.
    const source=raw.publicInfo&&typeof raw.publicInfo==='object'&&!Array.isArray(raw.publicInfo)?raw.publicInfo:{};
