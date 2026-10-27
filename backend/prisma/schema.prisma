@@ -1,9 +1,1209 @@
+// HSU PICK DB v2.2 | MySQL 8.4 | 2026-10-27
+// Source: ../../../문서모음/DB_ERD_20261025.sql (34 tables / 402 columns / 49 FKs).
+// CHECKs (70), charset/collation and InnoDB ROW_FORMAT are SQL-only constraints/settings.
+// Do not use db push or an unreviewed generated migration as a replacement for that SQL.
+// See ../../../문서모음/Prisma_스키마_적용_20261027.md before applying a migration.
+// BigInt IDs are serialized as strings. DATETIME(3) uses UTC; DATE retains civil dates.
+// @updatedAt is Prisma-client behavior only; raw SQL writers must maintain updated_at.
+
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
 }
 
 datasource db {
-  provider = "mysql"
+  provider     = "mysql"
+  relationMode = "foreignKeys"
 }
 
+/// ACTIVE=정상 계정; SUSPENDED=이용 정지; WITHDRAWN=탈퇴 처리 상태. 탈퇴 표시만으로 개인정보가 삭제되는 것은 아님.
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  WITHDRAWN
+}
+
+/// MEMBER=일반 회원; REVIEWER=콘텐츠 검토자; ADMIN=관리자. 권한 부여·검사는 서버 책임.
+enum UserRole {
+  MEMBER
+  REVIEWER
+  ADMIN
+}
+
+/// YEAR_1~YEAR_4=1~4학년; OTHER=기타. OTHER를 전 학년이나 미상으로 대체하지 않음.
+enum GradeCode {
+  YEAR_1
+  YEAR_2
+  YEAR_3
+  YEAR_4
+  OTHER
+}
+
+/// COLLEGE=대학; DEPARTMENT=학부·학과; TRACK=트랙.
+enum AcademicUnitKind {
+  COLLEGE
+  DEPARTMENT
+  TRACK
+}
+
+/// NOTICE=학교 공지 출처; PROGRAM=프로그램 출처.
+enum SourceKind {
+  NOTICE
+  PROGRAM
+}
+
+/// PUBLIC=노출 가능; HIDDEN=서비스에서 숨김; REMOVED_AT_SOURCE=원문 삭제 확인. PUBLIC만으로 AI 요약 공개가 승인되지는 않음.
+enum VisibilityStatus {
+  PUBLIC
+  HIDDEN
+  REMOVED_AT_SOURCE
+}
+
+/// QUEUED=대기; RUNNING=실행; COMPLETED=완료; FAILED=실패; CANCELLED=취소. 완료와 사람의 공개 승인은 다름.
+enum JobStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+/// INITIAL=초기 전체 수집; INCREMENTAL=증분; RECHECK=변경 재확인; FILE_IMPORT=저장 파일 입력.
+enum CrawlMode {
+  INITIAL
+  INCREMENTAL
+  RECHECK
+  FILE_IMPORT
+}
+
+/// DISCOVERED=발견; UNCHANGED=내용 동일; CREATED=신규; UPDATED=변경; FAILED=처리 오류; UNAVAILABLE=접근/확인 불가. UNAVAILABLE을 원문 삭제 확정으로 보지 않음.
+enum CrawlRecordStatus {
+  DISCOVERED
+  UNCHANGED
+  CREATED
+  UPDATED
+  FAILED
+  UNAVAILABLE
+}
+
+/// IMAGE=본문 이미지; ATTACHMENT=첨부파일.
+enum AssetKind {
+  IMAGE
+  ATTACHMENT
+}
+
+/// REMOTE_ONLY=원본 참조만 보유; STORED=저장소 보관 완료; FAILED=보관 실패.
+enum AssetStorageStatus {
+  REMOTE_ONLY
+  STORED
+  FAILED
+}
+
+/// PENDING=승인 전; APPROVED=검토 승인; REJECTED=이 요약 버전 반려. 공개 포인터 선택은 별도.
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// AI=모델 결과를 바탕으로 작성(검토자 수정 포함); HUMAN=완전 수동 작성. AI이면 분석 연결 필수라는 규칙은 서비스에서 검사.
+enum SummaryOrigin {
+  AI
+  HUMAN
+}
+
+/// recruitment=채용; education=교육 모집; academic_application=학사 신청; scholarship_policy=장학·선발기준; event=행사; survey=설문; collection=모음글; general=일반 안내.
+enum NoticeKind {
+  recruitment
+  education
+  academic_application
+  scholarship_policy
+  event
+  survey
+  collection
+  general
+}
+
+/// stated=신청 기간/마감 명시; not_stated=신청은 있으나 기간/마감 미기재; not_applicable=신청 개념 없음. 접수 중/마감 상태가 아님.
+enum ApplicationStatus {
+  stated
+  not_stated
+  not_applicable
+}
+
+/// UNKNOWN=미확인/표현 불가; ALL=해당 차원에 명시적 제한 없음; RESTRICTED=검토한 필수 대상 목록. 우대·추천 목록과 별개.
+enum EligibilityScope {
+  UNKNOWN
+  ALL
+  RESTRICTED
+}
+
+/// REQUIRED=필수 학년/소속 제한; PREFERRED=실제 선발 우대·가산점; RECOMMENDED=권장 대상. 후자 둘은 신청 불가 판정에 사용 금지.
+enum TargetPurpose {
+  REQUIRED
+  PREFERRED
+  RECOMMENDED
+}
+
+/// date=날짜만 확정; datetime=시각까지 확정; unknown=원문은 있으나 확정 불가. SQL NULL은 경계 자체가 없음.
+enum DatePrecision {
+  date
+  datetime
+  unknown
+}
+
+/// APPLICATION=신청; ACTIVITY=활동·교육·행사; RESULT=결과 발표; OTHER=기타.
+enum PeriodRole {
+  APPLICATION
+  ACTIVITY
+  RESULT
+  OTHER
+}
+
+/// VALID=현재 검증 규칙 통과; NEEDS_REVIEW=미검사/추가 검토; INVALID=형식·관계 등의 위반. 최종 신청 자격이나 모든 사실의 정확성 보증이 아님.
+enum ValidationStatus {
+  VALID
+  NEEDS_REVIEW
+  INVALID
+}
+
+/// date=달력일만 확정; datetime=시각까지 확정. D18과 달리 unknown은 금지.
+enum ReminderDeadlinePrecision {
+  date
+  datetime
+}
+
+/// PENDING=대기/재시도; PROCESSING=lease 선점; COMPLETED=알림·푸시 대기 생성 완료; CANCELLED=대상/설정 변경으로 취소; EXPIRED=발송 가능 시간 초과; FAILED=재시도 상한/영구 오류. COMPLETED는 푸시 수신 완료 아님.
+enum DeadlineReminderStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  CANCELLED
+  EXPIRED
+  FAILED
+}
+
+/// PENDING=대기; PROCESSING=선점; RETRY_WAIT=일시 실패 후 대기; ACCEPTED=공급자 접수; FAILED=최종 실패; CANCELLED=사용자/콘텐츠 사유 중단; EXPIRED=발송 시간 초과. ACCEPTED는 단말 표시·읽음 보장 아님.
+enum PushDeliveryStatus {
+  PENDING
+  PROCESSING
+  RETRY_WAIT
+  ACCEPTED
+  FAILED
+  CANCELLED
+  EXPIRED
+}
+
+/// 01. 회원 계정
+model User {
+  id           BigInt     @id @default(autoincrement()) @db.UnsignedBigInt
+  /// Normalized lowercase ASCII login ID; case-insensitive login is a proposed policy.
+  /// SQL collation: ascii_general_ci (must be preserved in migration SQL).
+  loginId      String     @map("login_id") @db.VarChar(20)
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  passwordHash String     @map("password_hash") @db.VarChar(255)
+  name         String     @db.VarChar(30)
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  status       UserStatus @default(ACTIVE)
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  role         UserRole   @default(MEMBER)
+  lastLoginAt  DateTime?  @map("last_login_at") @db.DateTime(3)
+  withdrawnAt  DateTime?  @map("withdrawn_at") @db.DateTime(3)
+  createdAt    DateTime   @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt    DateTime   @default(now()) @updatedAt @map("updated_at") @db.DateTime(3)
+
+  profile              UserProfile?              @relation("UserProfile")
+  sessions             UserSession[]             @relation("UserSessions")
+  academicUnits        UserAcademicUnit[]        @relation("UserAcademicUnits")
+  topics               UserTopic[]               @relation("UserTopics")
+  reviewedSummaries    NoticeSummary[]           @relation("SummaryReviewer")
+  noticeBookmarks      UserNoticeBookmark[]      @relation("UserNoticeBookmarks")
+  programBookmarks     UserProgramBookmark[]     @relation("UserProgramBookmarks")
+  notificationSettings UserNotificationSettings? @relation("UserNotificationSettings")
+  pushSubscriptions    WebPushSubscription[]     @relation("UserWebPushSubscriptions")
+  deadlineReminders    DeadlineReminder[]        @relation("UserDeadlineReminders")
+
+  @@unique([loginId], map: "uq_users_01")
+  @@map("users")
+}
+
+/// 02. 추천 프로필
+model UserProfile {
+  userId      BigInt     @id @map("user_id") @db.UnsignedBigInt
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  grade       GradeCode?
+  /// Null until grade, slots and interests pass the profile rules.
+  completedAt DateTime?  @map("completed_at") @db.DateTime(3)
+  updatedAt   DateTime   @default(now()) @updatedAt @map("updated_at") @db.DateTime(3)
+
+  user User @relation("UserProfile", fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_user_profiles_01")
+
+  @@map("user_profiles")
+}
+
+/// 03. 로그인 세션
+/// SQL-only CHECKs: ck_user_sessions_expiration
+model UserSession {
+  id               BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  userId           BigInt    @map("user_id") @db.UnsignedBigInt
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  refreshTokenHash String    @map("refresh_token_hash") @db.Char(64)
+  expiresAt        DateTime  @map("expires_at") @db.DateTime(3)
+  revokedAt        DateTime? @map("revoked_at") @db.DateTime(3)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.DateTime(3)
+
+  user User @relation("UserSessions", fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_user_sessions_01")
+
+  @@unique([refreshTokenHash], map: "uq_user_sessions_01")
+  @@index([userId, revokedAt, expiresAt], map: "idx_user_sessions_02")
+  @@index([expiresAt], map: "idx_user_sessions_03")
+  @@map("user_sessions")
+}
+
+/// 04. 대학·학부·학과·트랙
+/// SQL-only CHECKs: ck_academic_units_is_active, ck_academic_units_sort_order
+model AcademicUnit {
+  id          BigInt           @id @default(autoincrement()) @db.UnsignedBigInt
+  /// Stable service identifier, never the frontend array index.
+  /// SQL collation: utf8mb4_0900_as_cs (must be preserved in migration SQL).
+  code        String           @db.VarChar(64)
+  parentId    BigInt?          @map("parent_id") @db.UnsignedBigInt
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  kind        AcademicUnitKind
+  name        String           @db.VarChar(100)
+  /// Historical names/search aliases; not automatically a different academic unit.
+  aliasesJson Json?            @map("aliases_json") @db.Json
+  note        String?          @db.Text
+  isActive    Boolean          @default(true) @map("is_active")
+  sortOrder   Int              @default(0) @map("sort_order") @db.Int
+  createdAt   DateTime         @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt   DateTime         @default(now()) @updatedAt @map("updated_at") @db.DateTime(3)
+
+  parent         AcademicUnit?       @relation("AcademicUnitHierarchy", fields: [parentId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_academic_units_01")
+  children       AcademicUnit[]      @relation("AcademicUnitHierarchy")
+  userSelections UserAcademicUnit[]  @relation("AcademicUnitUsers")
+  noticeTargets  NoticeTargetUnit[]  @relation("AcademicUnitNoticeTargets")
+  programTargets ProgramTargetUnit[] @relation("AcademicUnitProgramTargets")
+
+  @@unique([code], map: "uq_academic_units_01")
+  @@index([parentId], map: "idx_academic_units_02")
+  @@index([kind, isActive], map: "idx_academic_units_03")
+  @@map("academic_units")
+}
+
+/// 05. 사용자 소속 슬롯
+/// SQL-only CHECKs: ck_user_academic_units_slot
+model UserAcademicUnit {
+  userId         BigInt   @map("user_id") @db.UnsignedBigInt
+  /// 1, 2 or 3; required slots depend on grade.
+  slot           Int      @db.TinyInt
+  academicUnitId BigInt   @map("academic_unit_id") @db.UnsignedBigInt
+  createdAt      DateTime @default(now()) @map("created_at") @db.DateTime(3)
+
+  user         User         @relation("UserAcademicUnits", fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_user_academic_units_01")
+  academicUnit AcademicUnit @relation("AcademicUnitUsers", fields: [academicUnitId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_user_academic_units_02")
+
+  @@id([userId, slot])
+  @@unique([userId, academicUnitId], map: "uq_user_academic_units_01")
+  @@index([academicUnitId], map: "idx_user_academic_units_02")
+  @@map("user_academic_units")
+}
+
+/// 06. 관심 분야
+/// SQL-only CHECKs: ck_topics_is_active, ck_topics_sort_order
+model Topic {
+  id        BigInt  @id @default(autoincrement()) @db.UnsignedBigInt
+  /// SQL collation: utf8mb4_0900_as_cs (must be preserved in migration SQL).
+  code      String  @db.VarChar(32)
+  name      String  @db.VarChar(50)
+  isActive  Boolean @default(true) @map("is_active")
+  sortOrder Int     @default(0) @map("sort_order") @db.Int
+
+  userSelections   UserTopic[]       @relation("TopicUsers")
+  noticeSummaries  NoticeSummary[]   @relation("TopicNoticeSummaries")
+  programRevisions ProgramRevision[] @relation("TopicProgramRevisions")
+
+  @@unique([code], map: "uq_topics_01")
+  @@map("topics")
+}
+
+/// 07. 사용자 관심 분야
+model UserTopic {
+  userId    BigInt   @map("user_id") @db.UnsignedBigInt
+  topicId   BigInt   @map("topic_id") @db.UnsignedBigInt
+  createdAt DateTime @default(now()) @map("created_at") @db.DateTime(3)
+
+  user  User  @relation("UserTopics", fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_user_topics_01")
+  topic Topic @relation("TopicUsers", fields: [topicId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_user_topics_02")
+
+  @@id([userId, topicId])
+  @@index([topicId], map: "idx_user_topics_01")
+  @@map("user_topics")
+}
+
+/// 08. 수집 출처
+/// SQL-only CHECKs: ck_sources_enabled, ck_sources_interval_minutes
+model Source {
+  id              BigInt     @id @default(autoincrement()) @db.UnsignedBigInt
+  /// SQL collation: utf8mb4_0900_as_cs (must be preserved in migration SQL).
+  code            String     @db.VarChar(64)
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  kind            SourceKind
+  name            String     @db.VarChar(100)
+  baseUrl         String     @map("base_url") @db.VarChar(512)
+  listUrl         String     @map("list_url") @db.Text
+  /// One source per board; e.g. hansung/2127.
+  /// SQL collation: utf8mb4_0900_as_cs (must be preserved in migration SQL).
+  boardKey        String?    @map("board_key") @db.VarChar(64)
+  enabled         Boolean    @default(false)
+  /// Positive interval, null means manual execution only.
+  intervalMinutes Int?       @map("interval_minutes") @db.Int
+  /// Successful listing cursor/watermark; not a numeric-ID range crawler.
+  cursorJson      Json?      @map("cursor_json") @db.Json
+  lastSuccessAt   DateTime?  @map("last_success_at") @db.DateTime(3)
+  nextRunAt       DateTime?  @map("next_run_at") @db.DateTime(3)
+  createdAt       DateTime   @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt       DateTime   @default(now()) @updatedAt @map("updated_at") @db.DateTime(3)
+
+  crawlRuns CrawlRun[] @relation("SourceCrawlRuns")
+  notices   Notice[]   @relation("SourceNotices")
+  programs  Program[]  @relation("SourcePrograms")
+
+  @@unique([code], map: "uq_sources_01")
+  @@index([enabled, nextRunAt], map: "idx_sources_02")
+  @@map("sources")
+}
+
+/// 09. 수집 실행
+/// SQL-only CHECKs: ck_crawl_runs_run_time
+model CrawlRun {
+  id         BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  sourceId   BigInt    @map("source_id") @db.UnsignedBigInt
+  /// SQL collation: utf8mb4_0900_as_cs (must be preserved in migration SQL).
+  runKey     String    @map("run_key") @db.VarChar(128)
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  mode       CrawlMode
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  status     JobStatus @default(QUEUED)
+  startedAt  DateTime? @map("started_at") @db.DateTime(3)
+  finishedAt DateTime? @map("finished_at") @db.DateTime(3)
+  statsJson  Json?     @map("stats_json") @db.Json
+  errorJson  Json?     @map("error_json") @db.Json
+  createdAt  DateTime  @default(now()) @map("created_at") @db.DateTime(3)
+
+  source  Source        @relation("SourceCrawlRuns", fields: [sourceId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_crawl_runs_01")
+  records CrawlRecord[] @relation("CrawlRunRecords")
+
+  @@unique([runKey], map: "uq_crawl_runs_01")
+  @@index([sourceId, createdAt], map: "idx_crawl_runs_02")
+  @@index([status, createdAt], map: "idx_crawl_runs_03")
+  @@map("crawl_runs")
+}
+
+/// 10. 게시물별 수집 기록
+/// SQL-only CHECKs: ck_crawl_records_attempt_count, ck_crawl_records_http_status
+model CrawlRecord {
+  id           BigInt            @id @default(autoincrement()) @db.UnsignedBigInt
+  crawlRunId   BigInt            @map("crawl_run_id") @db.UnsignedBigInt
+  /// SQL collation: utf8mb4_0900_as_cs (must be preserved in migration SQL).
+  externalId   String            @map("external_id") @db.VarChar(128)
+  sourceUrl    String?           @map("source_url") @db.Text
+  noticeId     BigInt?           @map("notice_id") @db.UnsignedBigInt
+  programId    BigInt?           @map("program_id") @db.UnsignedBigInt
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  status       CrawlRecordStatus @default(DISCOVERED)
+  attemptCount Int               @default(0) @map("attempt_count") @db.Int
+  httpStatus   Int?              @map("http_status") @db.Int
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  contentHash  String?           @map("content_hash") @db.Char(64)
+  errorJson    Json?             @map("error_json") @db.Json
+  fetchedAt    DateTime?         @map("fetched_at") @db.DateTime(3)
+
+  crawlRun CrawlRun @relation("CrawlRunRecords", fields: [crawlRunId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_crawl_records_01")
+  notice   Notice?  @relation("NoticeCrawlRecords", fields: [noticeId], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "fk_crawl_records_02")
+  program  Program? @relation("ProgramCrawlRecords", fields: [programId], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "fk_crawl_records_03")
+
+  @@unique([crawlRunId, externalId], map: "uq_crawl_records_01")
+  @@index([crawlRunId, status], map: "idx_crawl_records_02")
+  @@index([noticeId], map: "idx_crawl_records_03")
+  @@index([programId], map: "idx_crawl_records_04")
+  @@map("crawl_records")
+}
+
+/// 11. 공지 분류
+/// SQL-only CHECKs: ck_notice_categories_is_active, ck_notice_categories_sort_order
+model NoticeCategory {
+  id        BigInt  @id @default(autoincrement()) @db.UnsignedBigInt
+  /// SQL collation: utf8mb4_0900_as_cs (must be preserved in migration SQL).
+  code      String  @db.VarChar(32)
+  name      String  @db.VarChar(50)
+  isActive  Boolean @default(true) @map("is_active")
+  sortOrder Int     @default(0) @map("sort_order") @db.Int
+
+  summaries NoticeSummary[] @relation("NoticeCategorySummaries")
+
+  @@unique([code], map: "uq_notice_categories_01")
+  @@map("notice_categories")
+}
+
+/// 12. 공지 식별 및 공개 포인터
+model Notice {
+  id                 BigInt           @id @default(autoincrement()) @db.UnsignedBigInt
+  /// For this board: hansung-2127-225417; same as existing AI JSON id.
+  /// SQL collation: utf8mb4_0900_as_cs (must be preserved in migration SQL).
+  publicId           String           @map("public_id") @db.VarChar(128)
+  sourceId           BigInt           @map("source_id") @db.UnsignedBigInt
+  /// Source article number as a string; not local primary key.
+  /// SQL collation: utf8mb4_0900_as_cs (must be preserved in migration SQL).
+  externalId         String           @map("external_id") @db.VarChar(128)
+  canonicalUrl       String           @map("canonical_url") @db.VarChar(2048)
+  currentRevisionId  BigInt?          @map("current_revision_id") @db.UnsignedBigInt
+  publishedSummaryId BigInt?          @map("published_summary_id") @db.UnsignedBigInt
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  visibility         VisibilityStatus @default(PUBLIC)
+  firstCollectedAt   DateTime         @default(now()) @map("first_collected_at") @db.DateTime(3)
+  lastSeenAt         DateTime         @map("last_seen_at") @db.DateTime(3)
+  lastCheckedAt      DateTime         @map("last_checked_at") @db.DateTime(3)
+  removedAt          DateTime?        @map("removed_at") @db.DateTime(3)
+  updatedAt          DateTime         @default(now()) @updatedAt @map("updated_at") @db.DateTime(3)
+
+  crawlRecords     CrawlRecord[]        @relation("NoticeCrawlRecords")
+  source           Source               @relation("SourceNotices", fields: [sourceId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_notices_01")
+  currentRevision  NoticeRevision?      @relation("NoticeCurrentRevision", fields: [id, currentRevisionId], references: [noticeId, id], onDelete: NoAction, onUpdate: NoAction, map: "fk_notices_02")
+  publishedSummary NoticeSummary?       @relation("NoticePublishedSummary", fields: [id, publishedSummaryId], references: [noticeId, id], onDelete: NoAction, onUpdate: NoAction, map: "fk_notices_03")
+  revisions        NoticeRevision[]     @relation("NoticeRevisions")
+  bookmarks        UserNoticeBookmark[] @relation("NoticeBookmarks")
+
+  @@unique([publicId], map: "uq_notices_01")
+  @@unique([sourceId, externalId], map: "uq_notices_02")
+  @@index([visibility, lastSeenAt], map: "idx_notices_03")
+  @@index([id, currentRevisionId], map: "idx_notices_04")
+  @@index([id, publishedSummaryId], map: "idx_notices_05")
+  @@map("notices")
+}
+
+/// 13. 공지 원문 버전
+/// SQL-only CHECKs: ck_notice_revisions_revision_no
+model NoticeRevision {
+  id                  BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  noticeId            BigInt    @map("notice_id") @db.UnsignedBigInt
+  revisionNo          Int       @map("revision_no") @db.Int
+  /// Exact MHTML/HTML input hash; existing source.sha256.
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  sourceHash          String    @map("source_hash") @db.Char(64)
+  /// Normalized meaningful content + asset hashes, not navigation/view counts.
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  contentHash         String    @map("content_hash") @db.Char(64)
+  preprocessVersion   String    @map("preprocess_version") @db.VarChar(64)
+  title               String    @db.VarChar(512)
+  sourceCategory      String?   @map("source_category") @db.VarChar(128)
+  author              String?   @db.VarChar(128)
+  /// Source only provides a civil date in current notices.
+  publishedDate       DateTime? @map("published_date") @db.Date
+  bodyText            String?   @map("body_text") @db.LongText
+  sanitizedHtml       String?   @map("sanitized_html") @db.LongText
+  originalArtifactKey String?   @map("original_artifact_key") @db.VarChar(1024)
+  /// Ordered text/table/image blocks and source metadata; no image binaries.
+  preprocessedJson    Json      @map("preprocessed_json") @db.Json
+  collectedAt         DateTime  @map("collected_at") @db.DateTime(3)
+
+  /// Prisma inverse list; ownership FK plus Notice.id PK still limits this to zero/one.
+  currentForNotices Notice[]         @relation("NoticeCurrentRevision")
+  notice            Notice           @relation("NoticeRevisions", fields: [noticeId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_notice_revisions_01")
+  assets            NoticeAsset[]    @relation("NoticeRevisionAssets")
+  analyses          NoticeAnalysis[] @relation("NoticeRevisionAnalyses")
+  summaries         NoticeSummary[]  @relation("NoticeSummaryRevision")
+
+  @@unique([noticeId, revisionNo], map: "uq_notice_revisions_01")
+  @@unique([noticeId, id], map: "uq_notice_revisions_02")
+  @@index([noticeId, contentHash], map: "idx_notice_revisions_03")
+  @@index([noticeId, sourceHash, preprocessVersion], map: "idx_notice_revisions_04")
+  @@index([publishedDate], map: "idx_notice_revisions_05")
+  @@map("notice_revisions")
+}
+
+/// 14. 공지 이미지·첨부
+/// SQL-only CHECKs: ck_notice_assets_sort_order, ck_notice_assets_width, ck_notice_assets_height
+model NoticeAsset {
+  id            BigInt             @id @default(autoincrement()) @db.UnsignedBigInt
+  revisionId    BigInt             @map("revision_id") @db.UnsignedBigInt
+  /// Evidence ID scoped to this revision, e.g. image-001.
+  /// SQL collation: utf8mb4_0900_as_cs (must be preserved in migration SQL).
+  blockId       String             @map("block_id") @db.VarChar(128)
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  kind          AssetKind
+  sortOrder     Int                @map("sort_order") @db.Int
+  sourceUrl     String?            @map("source_url") @db.Text
+  objectKey     String?            @map("object_key") @db.VarChar(1024)
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  storageStatus AssetStorageStatus @default(REMOTE_ONLY) @map("storage_status")
+  filename      String?            @db.VarChar(512)
+  altText       String?            @map("alt_text") @db.Text
+  mimeType      String?            @map("mime_type") @db.VarChar(128)
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  sha256        String?            @db.Char(64)
+  sizeBytes     BigInt?            @map("size_bytes") @db.UnsignedBigInt
+  width         Int?               @db.Int
+  height        Int?               @db.Int
+  createdAt     DateTime           @default(now()) @map("created_at") @db.DateTime(3)
+
+  revision NoticeRevision @relation("NoticeRevisionAssets", fields: [revisionId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_notice_assets_01")
+
+  @@unique([revisionId, blockId], map: "uq_notice_assets_01")
+  @@index([revisionId, sortOrder], map: "idx_notice_assets_02")
+  @@index([sha256], map: "idx_notice_assets_03")
+  @@map("notice_assets")
+}
+
+/// 15. AI 실행 원본 및 성능
+/// SQL-only CHECKs: ck_notice_analyses_attempt_no, ck_notice_analyses_needs_review, ck_notice_analyses_wall_seconds, ck_notice_analyses_run_time, ck_notice_analyses_completed
+model NoticeAnalysis {
+  id                     BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  revisionId             BigInt    @map("revision_id") @db.UnsignedBigInt
+  /// Hash of run key + article + model digest + attempt; import idempotency.
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  importKey              String    @map("import_key") @db.Char(64)
+  /// Existing execution-manifest id, grouped across 20 notices.
+  /// SQL collation: utf8mb4_0900_as_cs (must be preserved in migration SQL).
+  runKey                 String    @map("run_key") @db.VarChar(128)
+  attemptNo              Int       @default(1) @map("attempt_no") @db.Int
+  modelName              String    @map("model_name") @db.VarChar(128)
+  modelDigest            String?   @map("model_digest") @db.VarChar(128)
+  pipelineVersion        String    @map("pipeline_version") @db.VarChar(64)
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  codeHash               String?   @map("code_hash") @db.Char(64)
+  schemaVersion          String    @map("schema_version") @db.VarChar(32)
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  inputFingerprint       String    @map("input_fingerprint") @db.Char(64)
+  configurationJson      Json      @map("configuration_json") @db.Json
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  status                 JobStatus @default(QUEUED)
+  /// Null for failed/unvalidated output; false is NOT human approval.
+  needsReview            Boolean?  @map("needs_review")
+  reviewIssuesJson       Json?     @map("review_issues_json") @db.Json
+  /// Unmodified detailed AI result, including evidence; null if failed.
+  resultJson             Json?     @map("result_json") @db.Json
+  /// Calls, imageReadings, normalizations, tokens and timings.
+  metricsJson            Json?     @map("metrics_json") @db.Json
+  errorJson              Json?     @map("error_json") @db.Json
+  rawResponseArtifactKey String?   @map("raw_response_artifact_key") @db.VarChar(1024)
+  manifestArtifactKey    String?   @map("manifest_artifact_key") @db.VarChar(1024)
+  startedAt              DateTime? @map("started_at") @db.DateTime(3)
+  finishedAt             DateTime? @map("finished_at") @db.DateTime(3)
+  wallSeconds            Decimal?  @map("wall_seconds") @db.Decimal(14, 3)
+  createdAt              DateTime  @default(now()) @map("created_at") @db.DateTime(3)
+
+  revision  NoticeRevision  @relation("NoticeRevisionAnalyses", fields: [revisionId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_notice_analyses_01")
+  summaries NoticeSummary[] @relation("NoticeSummaryAnalysis")
+
+  @@unique([importKey], map: "uq_notice_analyses_01")
+  @@unique([id, revisionId], map: "uq_notice_analyses_02")
+  @@index([revisionId, createdAt], map: "idx_notice_analyses_03")
+  @@index([inputFingerprint], map: "idx_notice_analyses_04")
+  @@index([runKey], map: "idx_notice_analyses_05")
+  @@index([status, createdAt], map: "idx_notice_analyses_06")
+  @@map("notice_analyses")
+}
+
+/// 16. 검증·승인할 서비스 요약
+/// SQL-only CHECKs: ck_notice_summaries_version_no, ck_notice_summaries_approval, ck_notice_summaries_validated
+model NoticeSummary {
+  id                   BigInt            @id @default(autoincrement()) @db.UnsignedBigInt
+  noticeId             BigInt            @map("notice_id") @db.UnsignedBigInt
+  revisionId           BigInt            @map("revision_id") @db.UnsignedBigInt
+  /// Null only for a fully human-authored summary.
+  analysisId           BigInt?           @map("analysis_id") @db.UnsignedBigInt
+  versionNo            Int               @map("version_no") @db.Int
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  origin               SummaryOrigin     @default(AI)
+  projectionVersion    String            @map("projection_version") @db.VarChar(32)
+  categoryId           BigInt            @map("category_id") @db.UnsignedBigInt
+  primaryTopicId       BigInt?           @map("primary_topic_id") @db.UnsignedBigInt
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  kind                 NoticeKind
+  oneLineSummary       String            @map("one_line_summary") @db.VarChar(180)
+  summaryJson          Json              @map("summary_json") @db.Json
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  applicationStatus    ApplicationStatus @map("application_status")
+  applicationJson      Json              @map("application_json") @db.Json
+  /// Schema 1.2 audience: description, qualifications/exclusions with nested exceptions, preferences and recommended. No flattened exception list.
+  audienceJson         Json?             @map("audience_json") @db.Json
+  activityPeriodsJson  Json?             @map("activity_periods_json") @db.Json
+  benefitsJson         Json?             @map("benefits_json") @db.Json
+  preparationsJson     Json?             @map("preparations_json") @db.Json
+  operationGuideJson   Json?             @map("operation_guide_json") @db.Json
+  detailsJson          Json?             @map("details_json") @db.Json
+  tagsJson             Json?             @map("tags_json") @db.Json
+  /// Mandatory grade scope only. Counts REQUIRED target rows, never PREFERRED/RECOMMENDED.
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  gradeScope           EligibilityScope  @default(UNKNOWN) @map("grade_scope")
+  /// Mandatory academic scope only; UNKNOWN is not ineligible.
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  academicScope        EligibilityScope  @default(UNKNOWN) @map("academic_scope")
+  /// Basis for mandatory scopes, ALL/UNKNOWN reasons and unsupported compound/exception logic. Per-target basis is on each target row.
+  eligibilityBasisJson Json?             @map("eligibility_basis_json") @db.Json
+  /// Service projection checks, separate from AI needs_review and human review_status. VALID is not final applicant eligibility.
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  validationStatus     ValidationStatus  @default(NEEDS_REVIEW) @map("validation_status")
+  /// Version-scoped issues with id, code, paths, evidence, message and detector. Includes importer/manual findings absent from AI output.
+  validationIssuesJson Json?             @map("validation_issues_json") @db.Json
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  reviewStatus         ReviewStatus      @default(PENDING) @map("review_status")
+  /// Each issue disposition: corrected, accepted limitation, or unresolved.
+  reviewResolutionJson Json?             @map("review_resolution_json") @db.Json
+  reviewedBy           BigInt?           @map("reviewed_by") @db.UnsignedBigInt
+  reviewedAt           DateTime?         @map("reviewed_at") @db.DateTime(3)
+  reviewNote           String?           @map("review_note") @db.Text
+  createdAt            DateTime          @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt            DateTime          @default(now()) @updatedAt @map("updated_at") @db.DateTime(3)
+
+  /// Prisma inverse list; ownership FK plus Notice.id PK still limits this to zero/one.
+  publishedForNotices Notice[]            @relation("NoticePublishedSummary")
+  revision            NoticeRevision      @relation("NoticeSummaryRevision", fields: [noticeId, revisionId], references: [noticeId, id], onDelete: Restrict, onUpdate: NoAction, map: "fk_notice_summaries_01")
+  analysis            NoticeAnalysis?     @relation("NoticeSummaryAnalysis", fields: [analysisId, revisionId], references: [id, revisionId], onDelete: Restrict, onUpdate: NoAction, map: "fk_notice_summaries_02")
+  category            NoticeCategory      @relation("NoticeCategorySummaries", fields: [categoryId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_notice_summaries_03")
+  primaryTopic        Topic?              @relation("TopicNoticeSummaries", fields: [primaryTopicId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_notice_summaries_04")
+  reviewer            User?               @relation("SummaryReviewer", fields: [reviewedBy], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "fk_notice_summaries_05")
+  periods             NoticePeriod[]      @relation("NoticeSummaryPeriods")
+  items               NoticeItem[]        @relation("NoticeSummaryItems")
+  targetGrades        NoticeTargetGrade[] @relation("NoticeSummaryTargetGrades")
+  targetUnits         NoticeTargetUnit[]  @relation("NoticeSummaryTargetUnits")
+  deadlineReminders   DeadlineReminder[]  @relation("ReminderNoticeSummary")
+
+  @@unique([noticeId, versionNo], map: "uq_notice_summaries_01")
+  @@unique([noticeId, id], map: "uq_notice_summaries_02")
+  @@index([noticeId, revisionId], map: "idx_notice_summaries_03")
+  @@index([analysisId, revisionId], map: "idx_notice_summaries_04")
+  @@index([categoryId, reviewStatus], map: "idx_notice_summaries_05")
+  @@index([primaryTopicId, reviewStatus], map: "idx_notice_summaries_06")
+  @@index([reviewStatus, createdAt], map: "idx_notice_summaries_07")
+  @@index([validationStatus, createdAt], map: "idx_notice_summaries_08")
+  @@map("notice_summaries")
+}
+
+/// 17. 공지 신청·활동 일정
+/// SQL-only CHECKs: ck_notice_periods_sort_order, ck_notice_periods_start_shape, ck_notice_periods_end_shape, ck_notice_periods_order_date, ck_notice_periods_order_at
+model NoticePeriod {
+  id             BigInt         @id @default(autoincrement()) @db.UnsignedBigInt
+  summaryId      BigInt         @map("summary_id") @db.UnsignedBigInt
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  role           PeriodRole
+  label          String         @db.VarChar(255)
+  sortOrder      Int            @map("sort_order") @db.Int
+  startRaw       String?        @map("start_raw") @db.Text
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  startPrecision DatePrecision? @map("start_precision")
+  startDate      DateTime?      @map("start_date") @db.Date
+  startAt        DateTime?      @map("start_at") @db.DateTime(3)
+  endRaw         String?        @map("end_raw") @db.Text
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  endPrecision   DatePrecision? @map("end_precision")
+  endDate        DateTime?      @map("end_date") @db.Date
+  endAt          DateTime?      @map("end_at") @db.DateTime(3)
+  evidenceJson   Json?          @map("evidence_json") @db.Json
+
+  summary NoticeSummary @relation("NoticeSummaryPeriods", fields: [summaryId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_notice_periods_01")
+
+  @@unique([summaryId, role, sortOrder], map: "uq_notice_periods_01")
+  @@index([role, endDate, summaryId], map: "idx_notice_periods_02")
+  @@index([role, endAt, summaryId], map: "idx_notice_periods_03")
+  @@map("notice_periods")
+}
+
+/// 18. 모음글의 개별 공고
+/// SQL-only CHECKs: ck_notice_items_sort_order, ck_notice_items_deadline_shape
+model NoticeItem {
+  id                BigInt         @id @default(autoincrement()) @db.UnsignedBigInt
+  summaryId         BigInt         @map("summary_id") @db.UnsignedBigInt
+  sortOrder         Int            @map("sort_order") @db.Int
+  title             String         @db.VarChar(512)
+  organization      String?        @db.VarChar(255)
+  originalUrl       String?        @map("original_url") @db.Text
+  deadlineRaw       String?        @map("deadline_raw") @db.Text
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  deadlinePrecision DatePrecision? @map("deadline_precision")
+  deadlineDate      DateTime?      @map("deadline_date") @db.Date
+  deadlineAt        DateTime?      @map("deadline_at") @db.DateTime(3)
+  factsJson         Json?          @map("facts_json") @db.Json
+  evidenceJson      Json           @map("evidence_json") @db.Json
+
+  summary NoticeSummary @relation("NoticeSummaryItems", fields: [summaryId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_notice_items_01")
+
+  @@unique([summaryId, sortOrder], map: "uq_notice_items_01")
+  @@index([deadlineDate], map: "idx_notice_items_02")
+  @@index([deadlineAt], map: "idx_notice_items_03")
+  @@map("notice_items")
+}
+
+/// 19. 목적별 대상 학년
+model NoticeTargetGrade {
+  summaryId BigInt        @map("summary_id") @db.UnsignedBigInt
+  /// Explicitly mapped; no default. Recommended/preferred grades must never become hard exclusions.
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  purpose   TargetPurpose
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  grade     GradeCode
+  /// Source paths, evidence IDs and mapping rationale scoped to this summary/revision; see companion contract.
+  basisJson Json          @map("basis_json") @db.Json
+
+  summary NoticeSummary @relation("NoticeSummaryTargetGrades", fields: [summaryId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_notice_target_grades_01")
+
+  @@id([summaryId, purpose, grade])
+  @@index([grade, purpose, summaryId], map: "idx_notice_target_grades_01")
+  @@map("notice_target_grades")
+}
+
+/// 20. 목적별 대상 소속
+/// SQL-only CHECKs: ck_notice_target_units_include_descendants
+model NoticeTargetUnit {
+  summaryId          BigInt        @map("summary_id") @db.UnsignedBigInt
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  purpose            TargetPurpose
+  academicUnitId     BigInt        @map("academic_unit_id") @db.UnsignedBigInt
+  includeDescendants Boolean       @default(false) @map("include_descendants")
+  /// Source paths, evidence IDs and rationale for unit/purpose/descendant mapping; never infer a mandatory major from a recommendation.
+  basisJson          Json          @map("basis_json") @db.Json
+
+  summary      NoticeSummary @relation("NoticeSummaryTargetUnits", fields: [summaryId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_notice_target_units_01")
+  academicUnit AcademicUnit  @relation("AcademicUnitNoticeTargets", fields: [academicUnitId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_notice_target_units_02")
+
+  @@id([summaryId, purpose, academicUnitId])
+  @@index([academicUnitId, purpose, summaryId], map: "idx_notice_target_units_01")
+  @@map("notice_target_units")
+}
+
+/// 21. 공지 북마크
+/// SQL-only CHECKs: ck_user_notice_bookmarks_reminder
+model UserNoticeBookmark {
+  userId                  BigInt   @map("user_id") @db.UnsignedBigInt
+  noticeId                BigInt   @map("notice_id") @db.UnsignedBigInt
+  deadlineReminderEnabled Boolean  @default(true) @map("deadline_reminder_enabled")
+  createdAt               DateTime @default(now()) @map("created_at") @db.DateTime(3)
+
+  user   User   @relation("UserNoticeBookmarks", fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_user_notice_bookmarks_01")
+  notice Notice @relation("NoticeBookmarks", fields: [noticeId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_user_notice_bookmarks_02")
+
+  @@id([userId, noticeId])
+  @@index([userId, createdAt], map: "idx_user_notice_bookmarks_01")
+  @@index([noticeId], map: "idx_user_notice_bookmarks_02")
+  @@map("user_notice_bookmarks")
+}
+
+/// 22. 프로그램 분류
+/// SQL-only CHECKs: ck_program_categories_is_active, ck_program_categories_sort_order
+model ProgramCategory {
+  id        BigInt  @id @default(autoincrement()) @db.UnsignedBigInt
+  /// SQL collation: utf8mb4_0900_as_cs (must be preserved in migration SQL).
+  code      String  @db.VarChar(32)
+  name      String  @db.VarChar(50)
+  isActive  Boolean @default(true) @map("is_active")
+  sortOrder Int     @default(0) @map("sort_order") @db.Int
+
+  revisions ProgramRevision[] @relation("ProgramCategoryRevisions")
+
+  @@unique([code], map: "uq_program_categories_01")
+  @@map("program_categories")
+}
+
+/// 23. 프로그램 식별 및 현재 버전
+model Program {
+  id                BigInt           @id @default(autoincrement()) @db.UnsignedBigInt
+  /// hsportal-program-14063; disjoint from notice public IDs.
+  /// SQL collation: utf8mb4_0900_as_cs (must be preserved in migration SQL).
+  publicId          String           @map("public_id") @db.VarChar(128)
+  sourceId          BigInt           @map("source_id") @db.UnsignedBigInt
+  /// SQL collation: utf8mb4_0900_as_cs (must be preserved in migration SQL).
+  externalId        String           @map("external_id") @db.VarChar(128)
+  /// Null if an actual public detail URL has not been verified.
+  canonicalUrl      String?          @map("canonical_url") @db.VarChar(2048)
+  currentRevisionId BigInt?          @map("current_revision_id") @db.UnsignedBigInt
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  visibility        VisibilityStatus @default(PUBLIC)
+  firstCollectedAt  DateTime         @default(now()) @map("first_collected_at") @db.DateTime(3)
+  lastSeenAt        DateTime         @map("last_seen_at") @db.DateTime(3)
+  lastCheckedAt     DateTime         @map("last_checked_at") @db.DateTime(3)
+  removedAt         DateTime?        @map("removed_at") @db.DateTime(3)
+  updatedAt         DateTime         @default(now()) @updatedAt @map("updated_at") @db.DateTime(3)
+
+  crawlRecords    CrawlRecord[]         @relation("ProgramCrawlRecords")
+  source          Source                @relation("SourcePrograms", fields: [sourceId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_programs_01")
+  currentRevision ProgramRevision?      @relation("ProgramCurrentRevision", fields: [id, currentRevisionId], references: [programId, id], onDelete: NoAction, onUpdate: NoAction, map: "fk_programs_02")
+  revisions       ProgramRevision[]     @relation("ProgramRevisions")
+  bookmarks       UserProgramBookmark[] @relation("ProgramBookmarks")
+
+  @@unique([publicId], map: "uq_programs_01")
+  @@unique([sourceId, externalId], map: "uq_programs_02")
+  @@index([id, currentRevisionId], map: "idx_programs_03")
+  @@index([visibility, lastSeenAt], map: "idx_programs_04")
+  @@map("programs")
+}
+
+/// 24. 프로그램 공개정보 버전
+/// SQL-only CHECKs: ck_program_revisions_revision_no, ck_program_revisions_points, ck_program_revisions_validated, ck_program_revisions_apply_start_shape, ck_program_revisions_apply_end_shape, ck_program_revisions_order_date, ck_program_revisions_order_at
+model ProgramRevision {
+  id                     BigInt            @id @default(autoincrement()) @db.UnsignedBigInt
+  programId              BigInt            @map("program_id") @db.UnsignedBigInt
+  revisionNo             Int               @map("revision_no") @db.Int
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  sourceHash             String            @map("source_hash") @db.Char(64)
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  contentHash            String            @map("content_hash") @db.Char(64)
+  parserVersion          String            @map("parser_version") @db.VarChar(64)
+  title                  String            @db.VarChar(512)
+  sourceCategory         String?           @map("source_category") @db.VarChar(128)
+  categoryId             BigInt            @map("category_id") @db.UnsignedBigInt
+  primaryTopicId         BigInt?           @map("primary_topic_id") @db.UnsignedBigInt
+  author                 String?           @db.VarChar(128)
+  department             String?           @db.VarChar(255)
+  publishedDate          DateTime?         @map("published_date") @db.Date
+  publicSummary          String?           @map("public_summary") @db.Text
+  audienceText           String?           @map("audience_text") @db.Text
+  applicationPeriodText  String?           @map("application_period_text") @db.Text
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  applicationStatus      ApplicationStatus @default(not_stated) @map("application_status")
+  applyStartRaw          String?           @map("apply_start_raw") @db.Text
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  applyStartPrecision    DatePrecision?    @map("apply_start_precision")
+  applyStartDate         DateTime?         @map("apply_start_date") @db.Date
+  applyStartAt           DateTime?         @map("apply_start_at") @db.DateTime(3)
+  applyEndRaw            String?           @map("apply_end_raw") @db.Text
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  applyEndPrecision      DatePrecision?    @map("apply_end_precision")
+  applyEndDate           DateTime?         @map("apply_end_date") @db.Date
+  applyEndAt             DateTime?         @map("apply_end_at") @db.DateTime(3)
+  activityPeriodsJson    Json?             @map("activity_periods_json") @db.Json
+  /// Exact, unconditional displayed value only; zero is valid, unknown/range is null.
+  points                 Decimal?          @db.Decimal(10, 2)
+  pointsText             String?           @map("points_text") @db.Text
+  location               String?           @db.Text
+  deliveryFormat         String?           @map("delivery_format") @db.VarChar(255)
+  /// Only when explicitly stated; never default individual/team.
+  participationMode      String?           @map("participation_mode") @db.VarChar(64)
+  bodyText               String?           @map("body_text") @db.LongText
+  sanitizedHtml          String?           @map("sanitized_html") @db.LongText
+  tagsJson               Json?             @map("tags_json") @db.Json
+  /// Mandatory scope; only REQUIRED rows constrain it.
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  gradeScope             EligibilityScope  @default(UNKNOWN) @map("grade_scope")
+  /// Mandatory scope; soft targets do not exclude applicants.
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  academicScope          EligibilityScope  @default(UNKNOWN) @map("academic_scope")
+  /// Public-source basis for mandatory scopes and unresolved compound/exception logic.
+  eligibilityBasisJson   Json?             @map("eligibility_basis_json") @db.Json
+  /// Source wording at collection time, NOT the current live state.
+  sourceApplicationState String?           @map("source_application_state") @db.VarChar(128)
+  rawMetadataJson        Json              @map("raw_metadata_json") @db.Json
+  originalArtifactKey    String?           @map("original_artifact_key") @db.VarChar(1024)
+  /// Includes source-to-purpose target mapping checks; not proof of final applicant eligibility.
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  validationStatus       ValidationStatus  @default(NEEDS_REVIEW) @map("validation_status")
+  /// Version-scoped validation findings. Unknown source information alone is not an invalid record.
+  validationIssuesJson   Json?             @map("validation_issues_json") @db.Json
+  collectedAt            DateTime          @map("collected_at") @db.DateTime(3)
+
+  /// Prisma inverse list; ownership FK plus Program.id PK still limits this to zero/one.
+  currentForPrograms Program[]            @relation("ProgramCurrentRevision")
+  program            Program              @relation("ProgramRevisions", fields: [programId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_program_revisions_01")
+  category           ProgramCategory      @relation("ProgramCategoryRevisions", fields: [categoryId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_program_revisions_02")
+  primaryTopic       Topic?               @relation("TopicProgramRevisions", fields: [primaryTopicId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_program_revisions_03")
+  sessions           ProgramSession[]     @relation("ProgramRevisionSessions")
+  assets             ProgramAsset[]       @relation("ProgramRevisionAssets")
+  targetGrades       ProgramTargetGrade[] @relation("ProgramRevisionTargetGrades")
+  targetUnits        ProgramTargetUnit[]  @relation("ProgramRevisionTargetUnits")
+  deadlineReminders  DeadlineReminder[]   @relation("ReminderProgramRevision")
+
+  @@unique([programId, revisionNo], map: "uq_program_revisions_01")
+  @@unique([programId, id], map: "uq_program_revisions_02")
+  @@index([programId, contentHash], map: "idx_program_revisions_03")
+  @@index([categoryId, validationStatus], map: "idx_program_revisions_04")
+  @@index([primaryTopicId, validationStatus], map: "idx_program_revisions_05")
+  @@index([applyEndDate], map: "idx_program_revisions_06")
+  @@index([applyEndAt], map: "idx_program_revisions_07")
+  @@index([publishedDate], map: "idx_program_revisions_08")
+  @@map("program_revisions")
+}
+
+/// 25. 프로그램 세부 모집 단위
+/// SQL-only CHECKs: ck_program_sessions_sort_order, ck_program_sessions_points, ck_program_sessions_capacity, ck_program_sessions_apply_start_shape, ck_program_sessions_apply_end_shape, ck_program_sessions_order_date, ck_program_sessions_order_at
+model ProgramSession {
+  id                    BigInt         @id @default(autoincrement()) @db.UnsignedBigInt
+  revisionId            BigInt         @map("revision_id") @db.UnsignedBigInt
+  /// Source session ID or revision-scoped import key; never name as PK.
+  /// SQL collation: utf8mb4_0900_as_cs (must be preserved in migration SQL).
+  sessionKey            String         @map("session_key") @db.VarChar(128)
+  title                 String         @db.VarChar(512)
+  sortOrder             Int            @map("sort_order") @db.Int
+  originalUrl           String?        @map("original_url") @db.Text
+  points                Decimal?       @db.Decimal(10, 2)
+  pointsText            String?        @map("points_text") @db.Text
+  applicationPeriodText String?        @map("application_period_text") @db.Text
+  applyStartRaw         String?        @map("apply_start_raw") @db.Text
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  applyStartPrecision   DatePrecision? @map("apply_start_precision")
+  applyStartDate        DateTime?      @map("apply_start_date") @db.Date
+  applyStartAt          DateTime?      @map("apply_start_at") @db.DateTime(3)
+  applyEndRaw           String?        @map("apply_end_raw") @db.Text
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  applyEndPrecision     DatePrecision? @map("apply_end_precision")
+  applyEndDate          DateTime?      @map("apply_end_date") @db.Date
+  applyEndAt            DateTime?      @map("apply_end_at") @db.DateTime(3)
+  activityPeriodsJson   Json?          @map("activity_periods_json") @db.Json
+  audienceText          String?        @map("audience_text") @db.Text
+  capacity              Int?           @db.Int
+  rawMetadataJson       Json           @map("raw_metadata_json") @db.Json
+
+  revision ProgramRevision @relation("ProgramRevisionSessions", fields: [revisionId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_program_sessions_01")
+
+  @@unique([revisionId, sessionKey], map: "uq_program_sessions_01")
+  @@index([revisionId, sortOrder], map: "idx_program_sessions_02")
+  @@index([applyEndDate], map: "idx_program_sessions_03")
+  @@index([applyEndAt], map: "idx_program_sessions_04")
+  @@map("program_sessions")
+}
+
+/// 26. 프로그램 이미지·첨부
+/// SQL-only CHECKs: ck_program_assets_sort_order, ck_program_assets_width, ck_program_assets_height
+model ProgramAsset {
+  id            BigInt             @id @default(autoincrement()) @db.UnsignedBigInt
+  revisionId    BigInt             @map("revision_id") @db.UnsignedBigInt
+  /// SQL collation: utf8mb4_0900_as_cs (must be preserved in migration SQL).
+  assetKey      String             @map("asset_key") @db.VarChar(128)
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  kind          AssetKind
+  sortOrder     Int                @map("sort_order") @db.Int
+  sourceUrl     String?            @map("source_url") @db.Text
+  objectKey     String?            @map("object_key") @db.VarChar(1024)
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  storageStatus AssetStorageStatus @default(REMOTE_ONLY) @map("storage_status")
+  filename      String?            @db.VarChar(512)
+  altText       String?            @map("alt_text") @db.Text
+  mimeType      String?            @map("mime_type") @db.VarChar(128)
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  sha256        String?            @db.Char(64)
+  sizeBytes     BigInt?            @map("size_bytes") @db.UnsignedBigInt
+  width         Int?               @db.Int
+  height        Int?               @db.Int
+  createdAt     DateTime           @default(now()) @map("created_at") @db.DateTime(3)
+
+  revision ProgramRevision @relation("ProgramRevisionAssets", fields: [revisionId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_program_assets_01")
+
+  @@unique([revisionId, assetKey], map: "uq_program_assets_01")
+  @@index([revisionId, sortOrder], map: "idx_program_assets_02")
+  @@index([sha256], map: "idx_program_assets_03")
+  @@map("program_assets")
+}
+
+/// 27. 프로그램 목적별 대상 학년
+model ProgramTargetGrade {
+  revisionId BigInt        @map("revision_id") @db.UnsignedBigInt
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  purpose    TargetPurpose
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  grade      GradeCode
+  /// Paths in this revision public source metadata, evidence and mapping rationale; no invented AI output.
+  basisJson  Json          @map("basis_json") @db.Json
+
+  revision ProgramRevision @relation("ProgramRevisionTargetGrades", fields: [revisionId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_program_target_grades_01")
+
+  @@id([revisionId, purpose, grade])
+  @@index([grade, purpose, revisionId], map: "idx_program_target_grades_01")
+  @@map("program_target_grades")
+}
+
+/// 28. 프로그램 목적별 대상 소속
+/// SQL-only CHECKs: ck_program_target_units_include_descendants
+model ProgramTargetUnit {
+  revisionId         BigInt        @map("revision_id") @db.UnsignedBigInt
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  purpose            TargetPurpose
+  academicUnitId     BigInt        @map("academic_unit_id") @db.UnsignedBigInt
+  includeDescendants Boolean       @default(false) @map("include_descendants")
+  /// Public-source basis for unit/purpose/descendant mapping. Session-only conditions cannot restrict the whole program.
+  basisJson          Json          @map("basis_json") @db.Json
+
+  revision     ProgramRevision @relation("ProgramRevisionTargetUnits", fields: [revisionId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_program_target_units_01")
+  academicUnit AcademicUnit    @relation("AcademicUnitProgramTargets", fields: [academicUnitId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_program_target_units_02")
+
+  @@id([revisionId, purpose, academicUnitId])
+  @@index([academicUnitId, purpose, revisionId], map: "idx_program_target_units_01")
+  @@map("program_target_units")
+}
+
+/// 29. 프로그램 북마크
+/// SQL-only CHECKs: ck_user_program_bookmarks_reminder
+model UserProgramBookmark {
+  userId                  BigInt   @map("user_id") @db.UnsignedBigInt
+  programId               BigInt   @map("program_id") @db.UnsignedBigInt
+  deadlineReminderEnabled Boolean  @default(true) @map("deadline_reminder_enabled")
+  createdAt               DateTime @default(now()) @map("created_at") @db.DateTime(3)
+
+  user    User    @relation("UserProgramBookmarks", fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_user_program_bookmarks_01")
+  program Program @relation("ProgramBookmarks", fields: [programId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_user_program_bookmarks_02")
+
+  @@id([userId, programId])
+  @@index([userId, createdAt], map: "idx_user_program_bookmarks_01")
+  @@index([programId], map: "idx_user_program_bookmarks_02")
+  @@map("user_program_bookmarks")
+}
+
+/// 30. 마감 알림 채널 설정; 푸시는 명시적 동의 후 활성화
+/// SQL-only CHECKs: ck_user_notification_settings_in_app, ck_user_notification_settings_push
+model UserNotificationSettings {
+  userId               BigInt   @id @map("user_id") @db.UnsignedBigInt
+  deadlineInAppEnabled Boolean  @default(true) @map("deadline_in_app_enabled")
+  deadlinePushEnabled  Boolean  @default(false) @map("deadline_push_enabled")
+  createdAt            DateTime @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt            DateTime @default(now()) @updatedAt @map("updated_at") @db.DateTime(3)
+
+  user User @relation("UserNotificationSettings", fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_user_notification_settings_01")
+
+  @@map("user_notification_settings")
+}
+
+/// 31. 회원 소유 브라우저 푸시 구독; 계정 간 소유자 UPDATE 금지
+/// SQL-only CHECKs: ck_web_push_subscriptions_keys
+model WebPushSubscription {
+  id           BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  userId       BigInt    @map("user_id") @db.UnsignedBigInt
+  /// Sensitive push capability URL. Never expose or log; validate HTTPS and provider allowlist before use.
+  endpoint     String    @db.Text
+  /// SHA-256 of exact endpoint UTF-8 bytes, not a lowercased URL.
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  endpointHash String    @map("endpoint_hash") @db.Char(64)
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  p256dh       String    @db.VarChar(128)
+  /// Browser subscription encryption secret, not a login JWT.
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  auth         String    @db.VarChar(64)
+  deviceLabel  String?   @map("device_label") @db.VarChar(100)
+  expirationAt DateTime? @map("expiration_at") @db.DateTime(3)
+  revokedAt    DateTime? @map("revoked_at") @db.DateTime(3)
+  revokeReason String?   @map("revoke_reason") @db.VarChar(64)
+  lastSeenAt   DateTime  @map("last_seen_at") @db.DateTime(3)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at") @db.DateTime(3)
+
+  user       User                       @relation("UserWebPushSubscriptions", fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_web_push_subscriptions_01")
+  deliveries NotificationPushDelivery[] @relation("SubscriptionPushDeliveries")
+
+  @@unique([endpointHash], map: "uq_web_push_subscriptions_01")
+  @@unique([id, userId], map: "uq_web_push_subscriptions_02")
+  @@index([userId, revokedAt, expirationAt], map: "idx_web_push_subscriptions_03")
+  @@map("web_push_subscriptions")
+}
+
+/// 32. 회원·콘텐츠·마감별 D-1 작업; 같은 마감의 복수 경로는 한 알림으로 묶음
+/// SQL-only CHECKs: ck_deadline_reminders_precision, ck_deadline_reminders_window, ck_deadline_reminders_attempts, ck_deadline_reminders_next_attempt, ck_deadline_reminders_lease, ck_deadline_reminders_terminal
+/// Service must require exactly one complete notice/summary OR program/revision pair.
+model DeadlineReminder {
+  id                BigInt                    @id @default(autoincrement()) @db.UnsignedBigInt
+  userId            BigInt                    @map("user_id") @db.UnsignedBigInt
+  noticeId          BigInt?                   @map("notice_id") @db.UnsignedBigInt
+  noticeSummaryId   BigInt?                   @map("notice_summary_id") @db.UnsignedBigInt
+  programId         BigInt?                   @map("program_id") @db.UnsignedBigInt
+  programRevisionId BigInt?                   @map("program_revision_id") @db.UnsignedBigInt
+  /// SHA-256 canonical D1 event identity: content kind/id and normalized precision/value; excludes revision, bookmark time and channel.
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  dedupKey          String                    @map("dedup_key") @db.Char(64)
+  /// Scheduling contract, initially deadline-d1-v1; NOT part of dedup_key.
+  policyVersion     String                    @map("policy_version") @db.VarChar(32)
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  deadlinePrecision ReminderDeadlinePrecision @map("deadline_precision")
+  deadlineDate      DateTime?                 @map("deadline_date") @db.Date
+  deadlineAt        DateTime?                 @map("deadline_at") @db.DateTime(3)
+  /// Non-empty validated list of period/item/session or program-root deadline references in the selected version.
+  sourceRefsJson    Json                      @map("source_refs_json") @db.Json
+  scheduledAt       DateTime                  @map("scheduled_at") @db.DateTime(3)
+  /// Exclusive retry/send cutoff; policy timestamp, NOT an invented source deadline.
+  deliverBefore     DateTime                  @map("deliver_before") @db.DateTime(3)
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  status            DeadlineReminderStatus    @default(PENDING)
+  nextAttemptAt     DateTime                  @map("next_attempt_at") @db.DateTime(3)
+  attemptCount      Int                       @default(0) @map("attempt_count") @db.Int
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  lockToken         String?                   @map("lock_token") @db.Char(36)
+  lockedUntil       DateTime?                 @map("locked_until") @db.DateTime(3)
+  /// Notification and push outbox creation committed; not proof of push delivery.
+  completedAt       DateTime?                 @map("completed_at") @db.DateTime(3)
+  cancelledAt       DateTime?                 @map("cancelled_at") @db.DateTime(3)
+  cancelReason      String?                   @map("cancel_reason") @db.VarChar(64)
+  lastError         String?                   @map("last_error") @db.Text
+  createdAt         DateTime                  @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt         DateTime                  @default(now()) @updatedAt @map("updated_at") @db.DateTime(3)
+
+  user            User             @relation("UserDeadlineReminders", fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_deadline_reminders_01")
+  noticeSummary   NoticeSummary?   @relation("ReminderNoticeSummary", fields: [noticeId, noticeSummaryId], references: [noticeId, id], onDelete: Restrict, onUpdate: NoAction, map: "fk_deadline_reminders_02")
+  programRevision ProgramRevision? @relation("ReminderProgramRevision", fields: [programId, programRevisionId], references: [programId, id], onDelete: Restrict, onUpdate: NoAction, map: "fk_deadline_reminders_03")
+  /// Prisma inverse list; Notification.reminderId remains UNIQUE (zero/one row).
+  notifications   Notification[]   @relation("ReminderNotification")
+
+  @@unique([userId, dedupKey], map: "uq_deadline_reminders_01")
+  @@unique([id, userId], map: "uq_deadline_reminders_02")
+  @@index([status, nextAttemptAt], map: "idx_deadline_reminders_03")
+  @@index([status, lockedUntil], map: "idx_deadline_reminders_04")
+  @@index([noticeId, noticeSummaryId, status], map: "idx_deadline_reminders_05")
+  @@index([programId, programRevisionId, status], map: "idx_deadline_reminders_06")
+  @@map("deadline_reminders")
+}
+
+/// 33. 예약당 하나의 알림; 푸시 전용이면 in_app_visible=false
+/// SQL-only CHECKs: ck_notifications_visible, ck_notifications_read_at
+/// One notification per reminder; composite FK preserves the recipient.
+model Notification {
+  id            BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  reminderId    BigInt    @map("reminder_id") @db.UnsignedBigInt
+  userId        BigInt    @map("user_id") @db.UnsignedBigInt
+  title         String    @db.VarChar(255)
+  body          String    @db.Text
+  inAppVisible  Boolean   @map("in_app_visible")
+  readAt        DateTime? @map("read_at") @db.DateTime(3)
+  /// User dismissal; retain row for idempotency, not a hard DELETE.
+  hiddenAt      DateTime? @map("hidden_at") @db.DateTime(3)
+  /// Source deadline changed/removed or content hidden; cancel unsent push and mark stale in the inbox.
+  invalidatedAt DateTime? @map("invalidated_at") @db.DateTime(3)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.DateTime(3)
+
+  reminder       DeadlineReminder           @relation("ReminderNotification", fields: [reminderId, userId], references: [id, userId], onDelete: Cascade, onUpdate: NoAction, map: "fk_notifications_01")
+  pushDeliveries NotificationPushDelivery[] @relation("NotificationPushDeliveries")
+
+  @@unique([reminderId], map: "uq_notifications_01")
+  @@unique([id, userId], map: "uq_notifications_02")
+  @@index([userId, inAppVisible, hiddenAt, createdAt], map: "idx_notifications_03")
+  @@index([userId, inAppVisible, hiddenAt, readAt, createdAt], map: "idx_notifications_04")
+  @@map("notifications")
+}
+
+/// 34. 알림·브라우저 구독별 발송; 외부 전송 exactly-once 보장 아님
+/// SQL-only CHECKs: ck_notification_push_deliveries_attempts, ck_notification_push_deliveries_http, ck_notification_push_deliveries_lease, ck_notification_push_deliveries_accepted
+/// Both composite FKs share userId to prevent cross-user delivery.
+model NotificationPushDelivery {
+  id               BigInt             @id @default(autoincrement()) @db.UnsignedBigInt
+  notificationId   BigInt             @map("notification_id") @db.UnsignedBigInt
+  userId           BigInt             @map("user_id") @db.UnsignedBigInt
+  subscriptionId   BigInt             @map("subscription_id") @db.UnsignedBigInt
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  status           PushDeliveryStatus @default(PENDING)
+  attemptCount     Int                @default(0) @map("attempt_count") @db.Int
+  nextAttemptAt    DateTime           @map("next_attempt_at") @db.DateTime(3)
+  /// SQL collation: ascii_bin (must be preserved in migration SQL).
+  lockToken        String?            @map("lock_token") @db.Char(36)
+  lockedUntil      DateTime?          @map("locked_until") @db.DateTime(3)
+  /// Push service accepted the request, NOT device display or user read.
+  acceptedAt       DateTime?          @map("accepted_at") @db.DateTime(3)
+  lastHttpStatus   Int?               @map("last_http_status") @db.Int
+  lastErrorCode    String?            @map("last_error_code") @db.VarChar(64)
+  /// Sanitized diagnostics only; no endpoint/auth/JWT.
+  lastErrorMessage String?            @map("last_error_message") @db.Text
+  createdAt        DateTime           @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt        DateTime           @default(now()) @updatedAt @map("updated_at") @db.DateTime(3)
+
+  notification Notification        @relation("NotificationPushDeliveries", fields: [notificationId, userId], references: [id, userId], onDelete: Cascade, onUpdate: NoAction, map: "fk_notification_push_deliveries_01")
+  subscription WebPushSubscription @relation("SubscriptionPushDeliveries", fields: [subscriptionId, userId], references: [id, userId], onDelete: Cascade, onUpdate: NoAction, map: "fk_notification_push_deliveries_02")
+
+  @@unique([notificationId, subscriptionId], map: "uq_notification_push_deliveries_01")
+  @@index([status, nextAttemptAt], map: "idx_notification_push_deliveries_02")
+  @@index([status, lockedUntil], map: "idx_notification_push_deliveries_03")
+  @@index([subscriptionId, userId, status], map: "idx_notification_push_deliveries_04")
+  @@index([notificationId, userId], map: "idx_notification_push_deliveries_05")
+  @@map("notification_push_deliveries")
+}
