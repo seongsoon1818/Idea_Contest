@@ -256,7 +256,7 @@ check(()=>assert($('.filters').querySelectorAll('button').every(e=>Boolean(e.que
 click('[data-category="recommended"]');
 check(()=>assert.deepEqual(mainIds(),baselinePrograms,'Program recommendations match the home list and order'));
 check(()=>assert(mainCards().every(e=>e.dataset.type==='program'&&e.querySelector('.recommend-reason'))));
-$('#search-input').value='no-results';document.dispatch('input',$('#search-input'));click('[data-action="reset-filter"]');
+$('#search-input').value='no-results';document.dispatch('input',$('#search-input'));check(()=>assert.equal($('[data-action="reset-filter"]'),null));$('#search-input').value='';document.dispatch('input',$('#search-input'));
 check(()=>assert.equal($('[data-category="recommended"]').attrs['aria-pressed'],'true'));
 check(()=>assert.deepEqual(mainIds(),baselinePrograms));
 for(const [category,ids,label] of [['learning',['p11','p17'],'학습역량강화'],['counseling',['p08'],'상담·심리지원'],['startup',['p07'],'창업지원'],['major',['p06'],'전공역량강화'],['other',['p13','p05','p02','p04','p09','p16'],'기타']]){
@@ -318,12 +318,12 @@ click('[data-category="recommended"]');
 check(()=>assert.deepEqual(mainIds(),baselineNotices));
 check(()=>assert(mainCards().every(e=>e.querySelector('.recommend-reason'))));
 check(()=>assert($('#sort-filter')&&$('#open-filter'),'Recommended items use the shared filter controls'));
-$('#search-input').value='no-results';document.dispatch('input',$('#search-input'));click('[data-action="reset-filter"]');
+$('#search-input').value='no-results';document.dispatch('input',$('#search-input'));check(()=>assert.equal($('[data-action="reset-filter"]'),null));$('#search-input').value='';document.dispatch('input',$('#search-input'));
 check(()=>assert.equal($('[data-category="recommended"]').attrs['aria-pressed'],'true'));
 check(()=>assert.deepEqual(mainIds(),baselineNotices));
 click('[data-category="all"]');check(()=>assert.equal($('#main').querySelectorAll('.recommend-reason').length,0));
 
-$('#search-input').value='no-results';document.dispatch('input',$('#search-input'));click('[data-action="reset-filter"]');
+$('#search-input').value='no-results';document.dispatch('input',$('#search-input'));check(()=>assert.equal($('[data-action="reset-filter"]'),null));$('#search-input').value='';document.dispatch('input',$('#search-input'));
 check(()=>assert(all('.card').every(e=>e.dataset.item.startsWith('n'))));
 navigate('programs');
 check(()=>assert.equal($('#main').querySelector('h1').textContent,'비교과 프로그램'));
@@ -390,7 +390,7 @@ $('#search-input').value='포트폴리오';document.dispatch('input',$('#search-
 check(()=>assert.equal(all('.card').length,1));
 check(()=>assert.equal($('#type-filter'),null));
 $('#search-input').value='no-results';document.dispatch('input',$('#search-input'));
-click('[data-action="reset-filter"]');check(()=>assert(all('.card').length>1));
+check(()=>assert.equal($('[data-action="reset-filter"]'),null));$('#search-input').value='';document.dispatch('input',$('#search-input'));check(()=>assert(all('.card').length>1));
 click('[data-category="other"]');check(()=>assert(all('.card').every(c=>c.querySelector('.category-badge').textContent==='기타')));
 change('#sort-filter','deadline');check(()=>assert.equal(all('.card')[0].dataset.item,'p13','Recruiting default excludes closed items from deadline sorting'));
 navigate('recommend');
@@ -423,7 +423,7 @@ check(()=>assert.equal($('[data-category="recommended"]').attrs['aria-pressed'],
 check(()=>assert.deepEqual(mainIds(),personalizedPrograms.filter(id=>savedProgramFixture.includes(id)),'Saved program recommendations exclude wrong-grade and closed entries'));
 $('#search-input').value='no-results';document.dispatch('input',$('#search-input'));
 check(()=>assert.equal(mainCards().length,0));
-click('[data-action="reset-filter"]');
+check(()=>assert.equal($('[data-action="reset-filter"]'),null));$('#search-input').value='';document.dispatch('input',$('#search-input'));
 check(()=>assert.equal($('[data-category="recommended"]').attrs['aria-pressed'],'true'));
 check(()=>assert.deepEqual(mainIds(),personalizedPrograms.filter(id=>savedProgramFixture.includes(id))));
 homeSelect('program');click('[data-action="save"][data-id="p02"]');
@@ -480,12 +480,12 @@ check(()=>assert.equal($('#modal').querySelectorAll('.comparison-card').length,3
 click('[data-action="remove-compare"][data-id="p04"]');check(()=>assert($('#modal').open&&$('#modal').querySelectorAll('.comparison-card').length===2));
 click('[data-action="remove-compare"][data-id="p02"]');homeSelect('notice');check(()=>assert(!$('#modal').open&&$('[data-compare="n03"]').checked&&$('#compare-tray').textContent.includes('1 / 3')));
 click('[data-action="clear-compare"]');check(()=>assert.equal($('#compare-tray').textContent,''));
-// Saved tabs isolate types and retain their type after an empty search reset.
+// Saved tabs isolate types and retain their type after clearing an empty search.
 navigate('saved');click('[data-tab="notice"]');check(()=>assert.deepEqual(mainIds(),['n03']));
 click('[data-tab="program"]');check(()=>assert.deepEqual(mainIds(),['p02']));
 check(()=>assert.equal($('#type-filter'),null));
 check(()=>assert.equal($('#main').querySelectorAll('.recommend-reason').length,0));
-$('#search-input').value='no-results';document.dispatch('input',$('#search-input'));click('[data-action="reset-filter"]');
+$('#search-input').value='no-results';document.dispatch('input',$('#search-input'));check(()=>assert.equal($('[data-action="reset-filter"]'),null));$('#search-input').value='';document.dispatch('input',$('#search-input'));
 check(()=>assert.deepEqual(mainIds(),['p02']));
 check(()=>assert.equal($('[data-tab="program"]').attrs['aria-pressed'],'true'));
 navigate('recommend');
@@ -626,7 +626,7 @@ for(const page of ['notices','programs']){
  click('[data-action="toggle-search"]');
  $('#search-input').value='no-results';document.dispatch('input',$('#search-input'));
  check(()=>assert.equal(mainIds().length,0));
- click('[data-action="reset-filter"]');
+ check(()=>assert.equal($('[data-action="reset-filter"]'),null));$('#search-input').value='';document.dispatch('input',$('#search-input'));
  check(()=>assert($('#search-input').value===''&&mainIds().length>0));
 }
 navigate('notices');
@@ -708,8 +708,8 @@ check(()=>assert.equal(all('.track-option').length,1));
 check(()=>assert(all('.track-option')[0].textContent.includes('2027')));
 searchTrack('없음-검색');
 check(()=>assert($('.track-empty')));
-click('[data-action="reset-track-filter"]');
-check(()=>assert($('#track-search').value===''&&$('#track-results').textContent==='','Reset returns to the initial blank catalog'));
+check(()=>assert.equal($('[data-action="reset-track-filter"]'),null));searchTrack('');filterTrack('college','all');
+check(()=>assert($('#track-search').value===''&&$('#track-results').textContent==='','Clearing search and choosing all colleges returns to the blank catalog'));
 filterTrack('college','social');filterTrack('group','social-0');filterTrack('college','engineering');
 check(()=>assert.equal(all('.track-option').length,0,'Changing college clears the previous department'));
 searchTrack('웹공학');pick('웹공학트랙');
