@@ -800,8 +800,8 @@ check(()=>assert.equal($('[data-item="n14"]').querySelector('.status-badge').tex
 check(()=>assert(!/샘플|시연|가상|프로토타입/.test(document.textContent)));
 // Scheduled midnight refresh also works without a focus or navigation event.
 runtimeNow='2026-10-15T14:59:59Z';storage.clear();setup(true);await import('../dist/app.js?midnight-date');
-const midnightTick=[...timerCallbacks.values()].at(-1);
-runtimeNow='2026-10-15T15:00:00Z';midnightTick();
+const midnightTicks=[...timerCallbacks.values()];
+runtimeNow='2026-10-15T15:00:00Z';midnightTicks.forEach(tick=>tick());
 check(()=>assert($('[data-item="n01"]').querySelector('.status-badge').textContent.includes('오늘 마감')));
 runtimeNow='2026-10-09T03:00:00Z';
 
@@ -1260,4 +1260,32 @@ for(const mobile of [true,false]){
  contract.replaceContentRecords(finalSnapshot);
 }
 check(()=>assert.deepEqual(boundaryFailures,[],'Live-update regressions: '+boundaryFailures.join('; ')));
+// Notification center behavior on both responsive layouts.
+for(const mobile of [true,false]){
+ storage.clear();setup(mobile);window.dispatchEvent=event=>window.dispatch(event.type);
+ storage.set('hsupick-notifications-v1:guest',JSON.stringify({settings:{deadline:true,recommendation:true},entries:[
+  {id:'deadline:n01',type:'deadline',itemId:'n01',title:'저장한 PICK이 내일 마감돼요!',body:'마감 알림 본문',createdAt:'2026-10-08T00:00:00Z',read:false},
+  {id:'recommendation:2026-10-08',type:'recommendation',title:'새로운 맞춤 PICK',body:'새로운 추천 2개',createdAt:'2026-10-08T00:00:00Z',read:false}
+ ]}));
+ await import(`../dist/app.js?notifications-${mobile}`);
+ check(()=>assert.equal(all('.notification-dot').length,1));
+ click('[data-action="notifications"]');
+ check(()=>assert.equal(all('.notification-item').length,2));
+ click('[data-action="notification-open"][data-id="deadline:n01"]');await Promise.resolve();await Promise.resolve();
+ check(()=>assert($('#modal').open&&$('#modal-title').textContent===ITEMS.find(i=>i.id==='n01').title));
+ check(()=>assert(JSON.parse(storage.get('hsupick-notifications-v1:guest')).entries[0].read));
+ click('[data-action="close"]');
+ check(()=>assert.equal(location.hash,'#notifications'));
+ click('[data-action="notification-open"][data-id="recommendation:2026-10-08"]');await Promise.resolve();await Promise.resolve();
+ check(()=>assert.equal(location.hash,'#recommend'));
+ check(()=>assert.equal(all('.notification-dot').length,0));
+ navigate('profile');
+ check(()=>assert.equal(all('[data-notification-setting]').length,2));
+ const deadline=$('[data-notification-setting="deadline"]');deadline.checked=false;document.dispatch('change',deadline);await Promise.resolve();await Promise.resolve();
+ check(()=>assert.equal(JSON.parse(storage.get('hsupick-notifications-v1:guest')).settings.deadline,false));
+ check(()=>assert(JSON.parse(storage.get('hsupick-notifications-v1:guest')).settings.recommendation));
+ navigate('notice/n01');
+ check(()=>assert($('#modal').open&&$('#modal-title').textContent===ITEMS.find(i=>i.id==='n01').title));
+ click('[data-action="close"]');
+}
 console.log(`PASS: ${count} DOM flow assertions; first-use guide, recommendations, search/filter/sort, compare limits, original links, save/reload, edit, missing data, reset, and storage recovery.`);
