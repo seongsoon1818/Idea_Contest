@@ -2,9 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createHash, randomBytes } from "node:crypto";
 import { withMysql } from "./mysql-fixture.mjs";
+import { noticeContract } from "./notice-contract.mjs";
 
 test(
-  "auth/user/catalog HTTP contract against a disposable MySQL instance",
+  "auth/user/catalog/notice HTTP contract against a disposable MySQL instance",
   { timeout: 180000 },
   async (t) =>
     withMysql(async (url) => {
@@ -602,6 +603,7 @@ test(
             );
           },
         );
+        await noticeContract(t, app, db, http);
       } finally {
         await app.close();
       }
