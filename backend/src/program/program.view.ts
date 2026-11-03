@@ -109,10 +109,10 @@ export const cardSelect = (userId?: bigint) => ({
   bookmarks: bookmarkSelect(userId),
   currentRevision: { select: cardFields },
 });
-export const detailSelect = (userId?: bigint) => ({
+export const detailSelect = (userId?: bigint, includeBody = true) => ({
   ...identity,
   bookmarks: bookmarkSelect(userId),
-  currentRevision: { select: detailFields },
+  currentRevision: { select: { ...detailFields, bodyText: includeBody } },
 });
 type Card = Prisma.ProgramGetPayload<{ select: ReturnType<typeof cardSelect> }>;
 type Detail = Prisma.ProgramGetPayload<{

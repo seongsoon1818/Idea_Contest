@@ -8,6 +8,7 @@ import { NoticeModule } from "./notice/notice.module.js";
 import { ProgramModule } from "./program/program.module.js";
 import { BookmarkModule } from "./bookmark/bookmark.module.js";
 import { NotificationModule } from "./notification/notification.module.js";
+import { RecommendationModule } from "./recommendation/recommendation.module.js";
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { NotificationModule } from "./notification/notification.module.js";
     ProgramModule,
     BookmarkModule,
     NotificationModule,
+    RecommendationModule,
   ],
 })
 export class AppModule {}

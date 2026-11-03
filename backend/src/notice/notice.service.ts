@@ -1,4 +1,6 @@
 import { noticeCards } from "./notice.cards.js";
+import type { Prisma } from "../generated/prisma/client.js";
+import type { MatchingProfile } from "../content/matching-profile.js";
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { ApiError, invalid } from "../common/errors.js";
@@ -21,6 +23,37 @@ function validatePublicId(publicId: string) {
 const notFound = () =>
   new ApiError(404, "RESOURCE_NOT_FOUND", "공지를 찾을 수 없습니다.");
 
+export async function readNoticeDetail(
+  tx: Prisma.TransactionClient,
+  publicId: string,
+  userId: bigint | undefined,
+  profile: MatchingProfile | null,
+  now: Date,
+) {
+  const {
+    rows: [row],
+  } = await readIndex(
+    tx,
+    noticeQuery({ status: "all" }),
+    profile,
+    now,
+    publicId,
+  );
+  if (!row) throw notFound();
+  const notice = await tx.notice.findUniqueOrThrow({
+    where: { id: row.id },
+    select: metadataSelect(userId, true),
+  });
+  const summary =
+    row.ready_id === null
+      ? undefined
+      : await tx.noticeSummary.findUniqueOrThrow({
+          where: { id: row.ready_id },
+          select: detailSummarySelect,
+        });
+  return detailView(notice, summary, row, userId !== undefined, !!profile);
+}
+
 @Injectable()
 export class NoticeService {
   constructor(private readonly db: PrismaService) {}
@@ -42,34 +75,7 @@ export class NoticeService {
     return this.db.$transaction(
       async (tx) => {
         const profile = await matchingProfile(tx, userId);
-        const {
-          rows: [row],
-        } = await readIndex(
-          tx,
-          noticeQuery({ status: "all" }),
-          profile,
-          new Date(),
-          publicId,
-        );
-        if (!row) throw notFound();
-        const notice = await tx.notice.findUniqueOrThrow({
-          where: { id: row.id },
-          select: metadataSelect(userId, true),
-        });
-        const summary =
-          row.ready_id === null
-            ? undefined
-            : await tx.noticeSummary.findUniqueOrThrow({
-                where: { id: row.ready_id },
-                select: detailSummarySelect,
-              });
-        return detailView(
-          notice,
-          summary,
-          row,
-          userId !== undefined,
-          !!profile,
-        );
+        return readNoticeDetail(tx, publicId, userId, profile, new Date());
       },
       { isolationLevel: "RepeatableRead" },
     );

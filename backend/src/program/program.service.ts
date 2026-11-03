@@ -1,4 +1,6 @@
 import { programCards } from "./program.cards.js";
+import type { Prisma } from "../generated/prisma/client.js";
+import type { MatchingProfile } from "../content/matching-profile.js";
 import { Injectable } from "@nestjs/common";
 import { ApiError, invalid } from "../common/errors.js";
 import { PrismaService } from "../prisma/prisma.service.js";
@@ -7,6 +9,36 @@ import { listProfile, pageResponse } from "../content/content.page.js";
 import { matchingProfile } from "../content/matching-profile.js";
 import { readProgramIndex } from "./program.index.js";
 import { detailSelect, programDetail } from "./program.view.js";
+
+export async function readProgramDetail(
+  tx: Prisma.TransactionClient,
+  publicId: string,
+  userId: bigint | undefined,
+  profile: MatchingProfile | null,
+  now: Date,
+  includeBody = true,
+) {
+  const {
+    rows: [row],
+  } = await readProgramIndex(
+    tx,
+    contentQuery({ status: "all" }, "programCategory"),
+    profile,
+    now,
+    publicId,
+  );
+  if (!row)
+    throw new ApiError(
+      404,
+      "RESOURCE_NOT_FOUND",
+      "프로그램을 찾을 수 없습니다.",
+    );
+  const p = await tx.program.findUniqueOrThrow({
+    where: { id: row.id },
+    select: detailSelect(userId, includeBody),
+  });
+  return programDetail(p, row, userId !== undefined, !!profile);
+}
 
 @Injectable()
 export class ProgramService {
@@ -30,26 +62,7 @@ export class ProgramService {
     return this.db.$transaction(
       async (tx) => {
         const profile = await matchingProfile(tx, userId);
-        const {
-          rows: [row],
-        } = await readProgramIndex(
-          tx,
-          contentQuery({ status: "all" }, "programCategory"),
-          profile,
-          new Date(),
-          publicId,
-        );
-        if (!row)
-          throw new ApiError(
-            404,
-            "RESOURCE_NOT_FOUND",
-            "프로그램을 찾을 수 없습니다.",
-          );
-        const p = await tx.program.findUniqueOrThrow({
-          where: { id: row.id },
-          select: detailSelect(userId),
-        });
-        return programDetail(p, row, userId !== undefined, !!profile);
+        return readProgramDetail(tx, publicId, userId, profile, new Date());
       },
       { isolationLevel: "RepeatableRead" },
     );

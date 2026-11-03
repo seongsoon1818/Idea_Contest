@@ -14,11 +14,8 @@ function search(term: string) {
     OR EXISTS(SELECT 1 FROM JSON_TABLE(s.tags_json,'$[*]' COLUMNS(txt TEXT PATH '$')) tag WHERE ${has(sql`tag.txt`)}))`;
 }
 
-export function readIndex(
-  tx: Prisma.TransactionClient,
+export function noticeSources(
   query: ContentQuery,
-  profile: MatchingProfile | null,
-  now: Date,
   publicId?: string,
   bookmarkUserId?: bigint,
 ) {
@@ -40,10 +37,27 @@ export function readIndex(
       UNION ALL
       SELECT b.id,1,i.id,i.sort_order,NULL,NULL,NULL,NULL,i.deadline_raw,i.deadline_precision,i.deadline_date,i.deadline_at
       FROM base b JOIN notice_items i ON i.summary_id=b.ready_id WHERE b.application_status<>'not_applicable'`;
-  return pageIndex(tx, query, profile, now, {
+  return {
     base,
     routes,
-    kind: "notice",
+    kind: "notice" as const,
     bookmarkUserId,
-  });
+  };
+}
+
+export function readIndex(
+  tx: Prisma.TransactionClient,
+  query: ContentQuery,
+  profile: MatchingProfile | null,
+  now: Date,
+  publicId?: string,
+  bookmarkUserId?: bigint,
+) {
+  return pageIndex(
+    tx,
+    query,
+    profile,
+    now,
+    noticeSources(query, publicId, bookmarkUserId),
+  );
 }

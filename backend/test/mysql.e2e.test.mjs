@@ -6,6 +6,7 @@ import { noticeContract } from "./notice-contract.mjs";
 import { programContract } from "./program-contract.mjs";
 import { bookmarkContract } from "./bookmark-contract.mjs";
 import { notificationContract } from "./notification-contract.mjs";
+import { recommendationContract } from "./recommendation-contract.mjs";
 import webpush from "web-push";
 
 test(
@@ -615,6 +616,7 @@ test(
         await programContract(t, app, db, http);
         await bookmarkContract(t, app, db, http);
         await notificationContract(t, app, db, http);
+        await recommendationContract(t, app, db, http);
       } finally {
         await app.close();
       }
