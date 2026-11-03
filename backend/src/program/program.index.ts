@@ -13,11 +13,8 @@ function search(term: string) {
     OR ${contains(sql`r.points_text`)} OR ${contains(sql`CONCAT(TRIM(TRAILING '.' FROM TRIM(TRAILING '0' FROM CAST(r.points AS CHAR))),'pt')`)}
     OR EXISTS(SELECT 1 FROM JSON_TABLE(r.tags_json,'$[*]' COLUMNS(txt TEXT PATH '$')) tag WHERE ${contains(sql`tag.txt`)}))`;
 }
-export function readProgramIndex(
-  tx: Prisma.TransactionClient,
+export function programSources(
   query: ContentQuery,
-  profile: MatchingProfile | null,
-  now: Date,
   publicId?: string,
   bookmarkUserId?: bigint,
 ) {
@@ -47,10 +44,27 @@ export function readProgramIndex(
     SELECT b.id,1,s.id,s.sort_order,s.apply_start_raw,s.apply_start_precision,s.apply_start_date,s.apply_start_at,
       s.apply_end_raw,s.apply_end_precision,s.apply_end_date,s.apply_end_at
     FROM base b JOIN program_sessions s ON s.revision_id=b.ready_id WHERE b.application_status<>'not_applicable'`;
-  return pageIndex(tx, query, profile, now, {
-    kind: "program",
+  return {
+    kind: "program" as const,
     base,
     routes,
     bookmarkUserId,
-  });
+  };
+}
+
+export function readProgramIndex(
+  tx: Prisma.TransactionClient,
+  query: ContentQuery,
+  profile: MatchingProfile | null,
+  now: Date,
+  publicId?: string,
+  bookmarkUserId?: bigint,
+) {
+  return pageIndex(
+    tx,
+    query,
+    profile,
+    now,
+    programSources(query, publicId, bookmarkUserId),
+  );
 }

@@ -14,6 +14,14 @@ const inbox = (userId: bigint) => ({
   inAppVisible: true,
   hiddenAt: null,
 });
+export function unreadCount(
+  db: Pick<Prisma.TransactionClient, "notification">,
+  userId: bigint,
+) {
+  return db.notification.count({
+    where: { ...inbox(userId), readAt: null, invalidatedAt: null },
+  });
+}
 const select = {
   id: true,
   title: true,
@@ -133,9 +141,7 @@ export class InboxService {
   }
   async unread(userId: bigint) {
     return {
-      count: await this.db.notification.count({
-        where: { ...inbox(userId), readAt: null, invalidatedAt: null },
-      }),
+      count: await unreadCount(this.db, userId),
     };
   }
   read(viewer: Principal, rawId: string, raw: unknown) {

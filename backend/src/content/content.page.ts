@@ -54,11 +54,14 @@ export function pageResponse<T>(
       totalPages,
       hasNext: q.page < totalPages,
     },
-    context: {
-      mode: personalized ? "PERSONALIZED" : "GENERAL",
-      profileCompleted: personalized,
-      recommendationPolicyVersion: "rule-v1",
-      generatedAt,
-    },
+    context: contentContext(personalized, generatedAt),
+  };
+}
+export function contentContext(personalized: boolean, generatedAt: Date) {
+  return {
+    mode: personalized ? "PERSONALIZED" : "GENERAL",
+    profileCompleted: personalized,
+    recommendationPolicyVersion: "rule-v1",
+    generatedAt,
   };
 }

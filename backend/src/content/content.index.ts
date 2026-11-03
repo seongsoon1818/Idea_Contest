@@ -4,6 +4,7 @@ import type { ContentQuery, RecruitmentStatus } from "./content.query.js";
 
 type Match = "MATCH" | "MISMATCH" | "UNKNOWN";
 export interface IndexRow {
+  content_type: "notice" | "program";
   id: bigint;
   public_id: string;
   ready_id: bigint | null;
@@ -30,6 +31,7 @@ export interface IndexRow {
   unavailable?: number | bigint;
 }
 const sql = Prisma.sql;
+const dueWithin = (days: number) => sql`days_left BETWEEN 0 AND ${days}`;
 const ids = (values: bigint[]) =>
   values.length ? Prisma.join(values) : sql`NULL`;
 
@@ -83,13 +85,12 @@ function aggregate(
 export type IndexPage = { total: number; rows: IndexRow[] };
 // Page a narrow index of public revisions/approved summaries, not original bodies or analysis JSON.
 // All interpolated values are bound parameters; only the fixed sort clauses are SQL fragments.
-export async function pageIndex(
-  tx: Prisma.TransactionClient,
+function candidateTables(
   query: ContentQuery,
   profile: MatchingProfile | null,
   now: Date,
   sources: Sources,
-): Promise<IndexPage> {
+) {
   const today = new Date(now.getTime() + 9 * 3600_000)
     .toISOString()
     .slice(0, 10);
@@ -98,20 +99,8 @@ export async function pageIndex(
   const filters: Prisma.Sql[] = [];
   if (query.status !== "all") filters.push(sql`recruitment=${query.status}`);
   if (query.recommendedOnly) filters.push(sql`eligibility<>'MISMATCH'`);
-  if (query.days !== null)
-    filters.push(sql`days_left BETWEEN 0 AND ${query.days}`);
+  if (query.days !== null) filters.push(dueWithin(query.days));
   const uid = sources.bookmarkUserId;
-  const tie = uid === undefined ? sql`public_id` : sql`saved_public_id`;
-  const deadlineOrder = sql`deadline_day IS NULL, deadline_day, end_at IS NULL, end_at, ${tie}`;
-  const sort =
-    query.sort === "saved"
-      ? sql`saved_at DESC, ${tie}`
-      : query.sort === "latest"
-        ? sql`published_date IS NULL, published_date DESC, ${tie}`
-        : query.sort === "recommended" && profile
-          ? sql`(topic_points+grade_points+unit_points) DESC, ${deadlineOrder}`
-          : deadlineOrder;
-
   const includeUnavailable =
     query.status === "all" &&
     !query.q &&
@@ -130,12 +119,7 @@ export async function pageIndex(
     SELECT m.*, b.id AS saved_id, b.public_id AS saved_public_id, b.saved_at, b.reminder_enabled, m.id IS NULL AS unavailable
     FROM saved b LEFT JOIN matches m ON m.id=b.id WHERE m.id IS NOT NULL
     ${includeUnavailable ? sql`OR NOT EXISTS(SELECT 1 FROM base v WHERE v.id=b.id)` : Prisma.empty}`;
-  type Result = IndexRow & {
-    total: bigint;
-    saved_id?: bigint;
-    saved_public_id?: string;
-  };
-  const result = await tx.$queryRaw<Result[]>(sql`
+  return sql`
     WITH ${uid === undefined ? Prisma.empty : sql`saved AS (${saved}),`} base AS (
       ${uid === undefined ? sources.base : sql`SELECT visible.* FROM (${sources.base}) visible JOIN saved ON saved.id=visible.id`}
     ), routes AS (
@@ -164,7 +148,7 @@ export async function pageIndex(
           end_at IS NULL,CASE WHEN window_state NOT IN ('open','upcoming') THEN end_at END DESC,end_at,source_kind,sort_order,route_id) AS choice_no
       FROM boundaries
     ), evaluated AS (
-      SELECT b.*,w.start_raw,w.start_precision,w.start_date,w.start_at,w.end_raw,w.end_precision,w.end_date,w.end_at,w.deadline_day,
+      SELECT b.*, ${sources.kind} AS content_type,w.start_raw,w.start_precision,w.start_date,w.start_at,w.end_raw,w.end_precision,w.end_date,w.end_at,w.deadline_day,
         DATEDIFF(w.deadline_day,${today}) AS days_left,COALESCE(w.deadline_count,0) AS deadline_count,
         ${aggregate(sql`w.any_open`, sql`w.any_unknown`, sql`w.any_upcoming`)} AS scheduled_state,
         ${program ? sql`${aggregate(sql`w.obs_open`, sql`w.obs_unknown`, sql`w.obs_upcoming`)} AS observed_state,` : Prisma.empty}
@@ -181,7 +165,78 @@ export async function pageIndex(
         CASE WHEN academic_scope='RESTRICTED' AND unit_match='MATCH' THEN 20 ELSE 0 END AS unit_points
       FROM classified
     ), matches AS (SELECT * FROM scored ${filters.length ? sql`WHERE ${Prisma.join(filters, " AND ")}` : Prisma.empty}),
-    candidates AS (${pageSource}), totals AS (SELECT COUNT(*) AS total FROM candidates),
+    candidates AS (${pageSource})`;
+}
+
+// Both domains expose the same ranking and card fields. Only the selected page needs hydration.
+const commonFields = sql`content_type,id,public_id,ready_id,published_date,recruitment,
+  start_raw,start_precision,start_date,start_at,end_raw,end_precision,end_date,end_at,
+  deadline_day,days_left,deadline_count,grade_match,unit_match,eligibility,source_conflict,topic_points,grade_points,unit_points`;
+function orderBy(
+  query: ContentQuery,
+  profile: MatchingProfile | null,
+  tie: Prisma.Sql,
+) {
+  const deadlineOrder = sql`deadline_day IS NULL, deadline_day, end_at IS NULL, end_at, ${tie}`;
+  if (query.sort === "saved") return sql`saved_at DESC, ${tie}`;
+  if (query.sort === "latest")
+    return sql`published_date IS NULL, published_date DESC, ${tie}`;
+  if (query.sort === "recommended" && profile)
+    return sql`(topic_points+grade_points+unit_points) DESC, ${deadlineOrder}`;
+  return deadlineOrder;
+}
+
+// Aggregate all open recommendation candidates before limiting this type's cards.
+export async function homePickIndex(
+  tx: Prisma.TransactionClient,
+  query: ContentQuery,
+  profile: MatchingProfile | null,
+  now: Date,
+  sources: Sources,
+) {
+  const rows = await tx.$queryRaw<
+    (IndexRow & { total: bigint; urgent: bigint })[]
+  >(sql`
+    ${candidateTables(query, profile, now, sources)}
+    SELECT candidates.*, COUNT(*) OVER () AS total,
+      COUNT(CASE WHEN ${dueWithin(3)} THEN 1 END) OVER () AS urgent
+    FROM candidates ORDER BY ${orderBy(query, profile, sql`public_id`)} LIMIT ${query.size}
+  `);
+  return {
+    rows,
+    total: Number(rows[0]?.total ?? 0),
+    urgent: Number(rows[0]?.urgent ?? 0),
+  };
+}
+
+export async function pageIndex(
+  tx: Prisma.TransactionClient,
+  query: ContentQuery,
+  profile: MatchingProfile | null,
+  now: Date,
+  sources: Sources,
+  second?: Sources,
+): Promise<IndexPage> {
+  const first = candidateTables(query, profile, now, sources);
+  const tables = second
+    ? sql`WITH candidates AS (
+    SELECT * FROM (${first} SELECT ${commonFields} FROM candidates) first_type
+    UNION ALL SELECT * FROM (${candidateTables(query, profile, now, second)} SELECT ${commonFields} FROM candidates) second_type
+  )`
+    : first;
+  const tie = second
+    ? sql`public_id,content_type`
+    : sources.bookmarkUserId === undefined
+      ? sql`public_id`
+      : sql`saved_public_id`;
+  const sort = orderBy(query, profile, tie);
+  type Result = IndexRow & {
+    total: bigint;
+    saved_id?: bigint;
+    saved_public_id?: string;
+  };
+  const result = await tx.$queryRaw<Result[]>(sql`${tables},
+    totals AS (SELECT COUNT(*) AS total FROM candidates),
     paged AS (SELECT * FROM candidates ORDER BY ${sort} LIMIT ${query.size} OFFSET ${BigInt(query.page - 1) * BigInt(query.size)})
     SELECT totals.total,paged.* FROM totals LEFT JOIN paged ON TRUE ORDER BY ${sort}
   `);
