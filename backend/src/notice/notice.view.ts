@@ -1,31 +1,24 @@
-import { Prisma, type DatePrecision } from "../generated/prisma/client.js";
-import { academicView, categorySelect } from "../catalog/academic.js";
-import type { IndexRow } from "./notice.index.js";
+import { Prisma } from "../generated/prisma/client.js";
+import { categorySelect } from "../catalog/academic.js";
+import type { IndexRow } from "../content/content.index.js";
+import {
+  orderedAssets,
+  publicAssets,
+  publicTargets,
+  httpsUrl,
+  thumbnailView,
+  bookmarkView,
+  scheduleView,
+  recommendationView,
+  boundary,
+} from "../content/content.view.js";
 
-const assetSelect = {
-  id: true,
-  kind: true,
-  sourceUrl: true,
-  storageStatus: true,
-  altText: true,
-  filename: true,
-  mimeType: true,
-  width: true,
-  height: true,
-  sizeBytes: true,
-  sortOrder: true,
-} satisfies Prisma.NoticeAssetSelect;
 const revisionHeader = {
   title: true,
   sourceCategory: true,
   author: true,
   publishedDate: true,
 } as const;
-const orderedAssets = {
-  select: assetSelect,
-  orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
-} satisfies Prisma.NoticeAssetFindManyArgs;
-
 // The content popup does not need per-user bookmarks, scores, or collected HTML.
 export const documentNoticeSelect = {
   id: true,
@@ -125,7 +118,6 @@ export const detailSummarySelect = {
   },
 } satisfies Prisma.NoticeSummarySelect;
 
-type AssetRow = Prisma.NoticeAssetGetPayload<{ select: typeof assetSelect }>;
 type Metadata = Prisma.NoticeGetPayload<{
   select: ReturnType<typeof metadataSelect>;
 }>;
@@ -136,22 +128,6 @@ type DetailSummary = Prisma.NoticeSummaryGetPayload<{
   select: typeof detailSummarySelect;
 }>;
 
-function httpsUrl(input: string | null, schoolOnly: boolean) {
-  if (!input || /[\\\u0000-\u001f]/.test(input)) return null;
-  try {
-    const u = new URL(input);
-    if (u.protocol !== "https:" || u.username || u.password || u.port)
-      return null;
-    if (
-      schoolOnly &&
-      !(u.hostname === "hansung.ac.kr" || u.hostname.endsWith(".hansung.ac.kr"))
-    )
-      return null;
-    return u;
-  } catch {
-    return null;
-  }
-}
 export function articleUrl(
   input: string,
   externalId: string,
@@ -167,25 +143,6 @@ export function articleUrl(
   return match && match[2] === externalId && (!board || board === match[1])
     ? url.origin + url.pathname
     : null;
-}
-function assetView(a: AssetRow) {
-  const url =
-    a.storageStatus === "FAILED"
-      ? null
-      : (httpsUrl(a.sourceUrl, true)?.href ?? null);
-  return {
-    id: String(a.id),
-    kind: a.kind,
-    url,
-    alt: a.altText,
-    filename: a.filename?.split(/[\\/]/).pop() ?? null,
-    mimeType: a.mimeType,
-    width: a.width,
-    height: a.height,
-    sizeBytes: a.sizeBytes?.toString() ?? null,
-    sortOrder: a.sortOrder,
-    availability: url ? "AVAILABLE" : "UNAVAILABLE",
-  };
 }
 type Obj = Record<string, unknown>;
 const obj = (v: unknown): Obj =>
@@ -236,24 +193,6 @@ export function benefitLabel(b: NonNullable<ReturnType<typeof benefit>>) {
     .filter(Boolean)
     .join(" · ");
 }
-function boundary(
-  raw: string | null,
-  precision: DatePrecision | null,
-  date: Date | null,
-  at: Date | null,
-) {
-  if (!precision || raw === null) return null;
-  return {
-    rawText: raw,
-    precision,
-    value:
-      precision === "date"
-        ? (date?.toISOString().slice(0, 10) ?? null)
-        : precision === "datetime"
-          ? (at?.toISOString() ?? null)
-          : null,
-  };
-}
 export function cardView(
   n: Metadata,
   s: CardSummary | undefined,
@@ -262,18 +201,6 @@ export function cardView(
   personalized: boolean,
 ) {
   const r = n.currentRevision!;
-  const thumbnail = r.assets.find(
-    (a) =>
-      a.kind === "IMAGE" &&
-      a.storageStatus !== "FAILED" &&
-      httpsUrl(a.sourceUrl, true),
-  );
-  const saved = n.bookmarks[0],
-    reasons: string[] = [];
-  if (Number(row.topic_points)) reasons.push("관심 분야 일치");
-  if (Number(row.unit_points)) reasons.push("지정 소속 일치");
-  if (Number(row.grade_points)) reasons.push("지정 학년 일치");
-  const status = row.eligibility;
   const firstBenefit = list(s?.benefitsJson, benefit)?.[0];
   return {
     id: n.publicId,
@@ -289,22 +216,10 @@ export function cardView(
     publishedDate: r.publishedDate?.toISOString().slice(0, 10) ?? null,
     originalUrl: articleUrl(n.canonicalUrl, n.externalId, n.publicId),
     applicationStatus: s?.applicationStatus ?? null,
-    recruitmentStatus: row.recruitment,
-    applicationStart: boundary(
-      row.start_raw,
-      row.start_precision,
-      row.start_date,
-      row.start_at,
-    ),
-    deadline:
-      row.days_left == null
-        ? null
-        : boundary(row.end_raw, row.end_precision, row.end_date, row.end_at),
-    deadlineCount: Number(row.deadline_count),
-    daysLeft: row.days_left == null ? null : Number(row.days_left),
+    ...scheduleView(row),
     benefitSummary: firstBenefit ? benefitLabel(firstBenefit) : null,
     targetSummary: fact(obj(s?.audienceJson).description),
-    thumbnail: thumbnail ? assetView(thumbnail) : null,
+    thumbnail: thumbnailView(r.assets),
     tags: list(s?.tagsJson, str) ?? [],
     summaryStatus: s
       ? "READY"
@@ -312,39 +227,8 @@ export function cardView(
           n.publishedSummary.revisionId !== n.currentRevisionId
         ? "STALE"
         : "UNAVAILABLE",
-    bookmark: loggedIn
-      ? {
-          saved: !!saved,
-          deadlineReminderEnabled: saved?.deadlineReminderEnabled ?? null,
-          savedAt: saved?.createdAt ?? null,
-        }
-      : null,
-    recommendation: {
-      score: personalized
-        ? Number(row.topic_points) +
-          Number(row.unit_points) +
-          Number(row.grade_points)
-        : null,
-      reasons,
-      eligibility: {
-        status,
-        gradeMatch: row.grade_match,
-        academicMatch: row.unit_match,
-        requiresSourceCheck: status !== "MATCH",
-        reasons: [
-          {
-            code: status,
-            message:
-              status === "MATCH"
-                ? "확인된 대상 조건과 일치합니다."
-                : status === "MISMATCH"
-                  ? "확인된 필수 대상 조건과 다릅니다."
-                  : "원문에서 신청 대상을 확인하세요.",
-          },
-        ],
-      },
-      policyVersion: "rule-v1",
-    },
+    bookmark: bookmarkView(loggedIn, n.bookmarks[0]),
+    recommendation: recommendationView(row, personalized),
     lastCheckedAt: n.lastCheckedAt,
   };
 }
@@ -502,24 +386,4 @@ export function originalUrlWarnings(url: string | null) {
           message: "확인된 학교 원문 링크가 없습니다.",
         },
       ];
-}
-export function publicAssets(rows: AssetRow[]) {
-  const assets = rows.map(assetView);
-  return {
-    images: assets.filter((a) => a.kind === "IMAGE"),
-    attachments: assets.filter((a) => a.kind === "ATTACHMENT"),
-  };
-}
-export function publicTargets(s: DetailSummary | undefined) {
-  return {
-    gradeScope: s?.gradeScope ?? "UNKNOWN",
-    academicScope: s?.academicScope ?? "UNKNOWN",
-    grades: s?.targetGrades ?? [],
-    academicUnits:
-      s?.targetUnits.map((u) => ({
-        purpose: u.purpose,
-        unit: academicView(u.academicUnit),
-        includeDescendants: u.includeDescendants,
-      })) ?? [],
-  };
 }

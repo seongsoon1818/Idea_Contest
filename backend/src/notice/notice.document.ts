@@ -1,11 +1,10 @@
+import { publicAssets, publicTargets } from "../content/content.view.js";
 import type { GradeCode, Prisma } from "../generated/prisma/client.js";
 import {
   articleUrl,
   benefitLabel,
   originalUrlWarnings,
-  publicAssets,
   publicSummary,
-  publicTargets,
   reviewLimitations,
   type detailSummarySelect,
   type documentNoticeSelect,
