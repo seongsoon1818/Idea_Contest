@@ -31,6 +31,7 @@ export interface IndexRow {
   unavailable?: number | bigint;
 }
 const sql = Prisma.sql;
+const dueWithin = (days: number) => sql`days_left BETWEEN 0 AND ${days}`;
 const ids = (values: bigint[]) =>
   values.length ? Prisma.join(values) : sql`NULL`;
 
@@ -98,8 +99,7 @@ function candidateTables(
   const filters: Prisma.Sql[] = [];
   if (query.status !== "all") filters.push(sql`recruitment=${query.status}`);
   if (query.recommendedOnly) filters.push(sql`eligibility<>'MISMATCH'`);
-  if (query.days !== null)
-    filters.push(sql`days_left BETWEEN 0 AND ${query.days}`);
+  if (query.days !== null) filters.push(dueWithin(query.days));
   const uid = sources.bookmarkUserId;
   const includeUnavailable =
     query.status === "all" &&
@@ -172,6 +172,43 @@ function candidateTables(
 const commonFields = sql`content_type,id,public_id,ready_id,published_date,recruitment,
   start_raw,start_precision,start_date,start_at,end_raw,end_precision,end_date,end_at,
   deadline_day,days_left,deadline_count,grade_match,unit_match,eligibility,source_conflict,topic_points,grade_points,unit_points`;
+function orderBy(
+  query: ContentQuery,
+  profile: MatchingProfile | null,
+  tie: Prisma.Sql,
+) {
+  const deadlineOrder = sql`deadline_day IS NULL, deadline_day, end_at IS NULL, end_at, ${tie}`;
+  if (query.sort === "saved") return sql`saved_at DESC, ${tie}`;
+  if (query.sort === "latest")
+    return sql`published_date IS NULL, published_date DESC, ${tie}`;
+  if (query.sort === "recommended" && profile)
+    return sql`(topic_points+grade_points+unit_points) DESC, ${deadlineOrder}`;
+  return deadlineOrder;
+}
+
+// Aggregate all open recommendation candidates before limiting this type's cards.
+export async function homePickIndex(
+  tx: Prisma.TransactionClient,
+  query: ContentQuery,
+  profile: MatchingProfile | null,
+  now: Date,
+  sources: Sources,
+) {
+  const rows = await tx.$queryRaw<
+    (IndexRow & { total: bigint; urgent: bigint })[]
+  >(sql`
+    ${candidateTables(query, profile, now, sources)}
+    SELECT candidates.*, COUNT(*) OVER () AS total,
+      COUNT(CASE WHEN ${dueWithin(3)} THEN 1 END) OVER () AS urgent
+    FROM candidates ORDER BY ${orderBy(query, profile, sql`public_id`)} LIMIT ${query.size}
+  `);
+  return {
+    rows,
+    total: Number(rows[0]?.total ?? 0),
+    urgent: Number(rows[0]?.urgent ?? 0),
+  };
+}
+
 export async function pageIndex(
   tx: Prisma.TransactionClient,
   query: ContentQuery,
@@ -192,15 +229,7 @@ export async function pageIndex(
     : sources.bookmarkUserId === undefined
       ? sql`public_id`
       : sql`saved_public_id`;
-  const deadlineOrder = sql`deadline_day IS NULL, deadline_day, end_at IS NULL, end_at, ${tie}`;
-  const sort =
-    query.sort === "saved"
-      ? sql`saved_at DESC, ${tie}`
-      : query.sort === "latest"
-        ? sql`published_date IS NULL, published_date DESC, ${tie}`
-        : query.sort === "recommended" && profile
-          ? sql`(topic_points+grade_points+unit_points) DESC, ${deadlineOrder}`
-          : deadlineOrder;
+  const sort = orderBy(query, profile, tie);
   type Result = IndexRow & {
     total: bigint;
     saved_id?: bigint;

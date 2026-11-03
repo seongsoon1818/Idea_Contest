@@ -22,7 +22,7 @@ const statuses = [
   "all",
 ] as const;
 export type RecruitmentStatus = Exclude<(typeof statuses)[number], "all">;
-function integer(
+export function integerQuery(
   v: string | undefined,
   field: string,
   fallback: number,
@@ -48,8 +48,8 @@ export function contentQuery(
   if (p.deadlineWithinDays !== undefined && status !== "open")
     invalid("deadlineWithinDays", "모집중 필터와 함께 사용하세요.");
   return {
-    page: integer(p.page, "page", 1, 1, Number.MAX_SAFE_INTEGER),
-    size: integer(p.size, "size", 20, 1, 100),
+    page: integerQuery(p.page, "page", 1, 1, Number.MAX_SAFE_INTEGER),
+    size: integerQuery(p.size, "size", 20, 1, 100),
     q: p.q === undefined ? null : textInput(p.q, "q", 100),
     topic: p.topic === undefined ? null : textInput(p.topic, "topic", 32),
     category:
@@ -73,7 +73,7 @@ export function contentQuery(
     days:
       p.deadlineWithinDays === undefined
         ? null
-        : integer(p.deadlineWithinDays, "deadlineWithinDays", 0, 0, 30),
+        : integerQuery(p.deadlineWithinDays, "deadlineWithinDays", 0, 0, 30),
   };
 }
 export type ContentQuery = ReturnType<typeof contentQuery>;
