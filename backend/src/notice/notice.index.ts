@@ -20,6 +20,7 @@ export function readIndex(
   profile: MatchingProfile | null,
   now: Date,
   publicId?: string,
+  bookmarkUserId?: bigint,
 ) {
   const base = sql`      SELECT n.id,n.public_id,r.published_date,s.id AS ready_id,s.application_status,s.primary_topic_id,s.grade_scope,s.academic_scope,
         COALESCE(JSON_CONTAINS_PATH(s.audience_json,'one','$.qualifications[*].exceptions[0]','$.exclusions[*].exceptions[0]'),0) AS has_exceptions,
@@ -39,5 +40,10 @@ export function readIndex(
       UNION ALL
       SELECT b.id,1,i.id,i.sort_order,NULL,NULL,NULL,NULL,i.deadline_raw,i.deadline_precision,i.deadline_date,i.deadline_at
       FROM base b JOIN notice_items i ON i.summary_id=b.ready_id WHERE b.application_status<>'not_applicable'`;
-  return pageIndex(tx, query, profile, now, { base, routes, kind: "notice" });
+  return pageIndex(tx, query, profile, now, {
+    base,
+    routes,
+    kind: "notice",
+    bookmarkUserId,
+  });
 }

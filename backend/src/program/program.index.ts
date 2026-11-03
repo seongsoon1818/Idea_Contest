@@ -19,6 +19,7 @@ export function readProgramIndex(
   profile: MatchingProfile | null,
   now: Date,
   publicId?: string,
+  bookmarkUserId?: bigint,
 ) {
   const base = sql`SELECT p.id,p.public_id,r.id AS ready_id,r.published_date,r.application_status,r.primary_topic_id,
     r.grade_scope,r.academic_scope,r.collected_at AS observed_at,
@@ -46,5 +47,10 @@ export function readProgramIndex(
     SELECT b.id,1,s.id,s.sort_order,s.apply_start_raw,s.apply_start_precision,s.apply_start_date,s.apply_start_at,
       s.apply_end_raw,s.apply_end_precision,s.apply_end_date,s.apply_end_at
     FROM base b JOIN program_sessions s ON s.revision_id=b.ready_id WHERE b.application_status<>'not_applicable'`;
-  return pageIndex(tx, query, profile, now, { kind: "program", base, routes });
+  return pageIndex(tx, query, profile, now, {
+    kind: "program",
+    base,
+    routes,
+    bookmarkUserId,
+  });
 }

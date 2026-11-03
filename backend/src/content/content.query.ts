@@ -38,8 +38,13 @@ function integer(
 export function contentQuery(
   p: Record<string, string>,
   categoryKey: CategoryKey,
+  bookmarks = false,
 ) {
-  const status = enumInput(p.status ?? "open", statuses, "status");
+  const status = enumInput(
+    p.status ?? (bookmarks ? "all" : "open"),
+    statuses,
+    "status",
+  );
   if (p.deadlineWithinDays !== undefined && status !== "open")
     invalid("deadlineWithinDays", "모집중 필터와 함께 사용하세요.");
   return {
@@ -53,8 +58,10 @@ export function contentQuery(
         : textInput(p[categoryKey], categoryKey, 32),
     status,
     sort: enumInput(
-      p.sort ?? "latest",
-      ["latest", "deadline", "recommended"] as const,
+      p.sort ?? (bookmarks ? "saved" : "latest"),
+      bookmarks
+        ? (["saved", "latest", "deadline", "recommended"] as const)
+        : (["latest", "deadline", "recommended"] as const),
       "sort",
     ),
     recommendedOnly:

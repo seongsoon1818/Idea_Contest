@@ -4,15 +4,22 @@ import { createHash, randomBytes } from "node:crypto";
 import { withMysql } from "./mysql-fixture.mjs";
 import { noticeContract } from "./notice-contract.mjs";
 import { programContract } from "./program-contract.mjs";
+import { bookmarkContract } from "./bookmark-contract.mjs";
+import { notificationContract } from "./notification-contract.mjs";
+import webpush from "web-push";
 
 test(
-  "auth/user/catalog/notice/program HTTP contract against a disposable MySQL instance",
+  "HTTP contracts and deadline worker against a disposable MySQL instance",
   { timeout: 180000 },
   async (t) =>
     withMysql(async (url) => {
       process.env.DATABASE_URL = url;
       process.env.JWT_SECRET = randomBytes(48).toString("base64url");
       process.env.NODE_ENV = "test";
+      const vapid = webpush.generateVAPIDKeys();
+      process.env.VAPID_PUBLIC_KEY = vapid.publicKey;
+      process.env.VAPID_PRIVATE_KEY = vapid.privateKey;
+      process.env.VAPID_SUBJECT = "mailto:test@example.org";
       const origin = (process.env.ALLOWED_ORIGINS = "http://localhost:8080");
       const { createApp } = await import("../dist/app.js");
       const { PrismaService } =
@@ -606,6 +613,8 @@ test(
         );
         await noticeContract(t, app, db, http);
         await programContract(t, app, db, http);
+        await bookmarkContract(t, app, db, http);
+        await notificationContract(t, app, db, http);
       } finally {
         await app.close();
       }

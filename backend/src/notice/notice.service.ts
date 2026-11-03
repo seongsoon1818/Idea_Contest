@@ -1,3 +1,4 @@
+import { noticeCards } from "./notice.cards.js";
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { ApiError, invalid } from "../common/errors.js";
@@ -7,8 +8,6 @@ import { readIndex } from "./notice.index.js";
 import { noticeQuery } from "./notice.query.js";
 import { documentView } from "./notice.document.js";
 import {
-  cardSummarySelect,
-  cardView,
   detailSummarySelect,
   detailView,
   documentNoticeSelect,
@@ -32,32 +31,7 @@ export class NoticeService {
         const profile = await listProfile(tx, q, "notice", userId),
           now = new Date();
         const { rows, total } = await readIndex(tx, q, profile, now);
-        const notices = rows.length
-          ? await tx.notice.findMany({
-              where: { id: { in: rows.map((r) => r.id) } },
-              select: metadataSelect(userId, false),
-            })
-          : [];
-        const summaryIds = rows.flatMap((r) =>
-          r.ready_id === null ? [] : [r.ready_id],
-        );
-        const summaries = summaryIds.length
-          ? await tx.noticeSummary.findMany({
-              where: { id: { in: summaryIds } },
-              select: cardSummarySelect,
-            })
-          : [];
-        const records = new Map(notices.map((n) => [n.id, n])),
-          ready = new Map(summaries.map((s) => [s.id, s]));
-        const items = rows.map((r) =>
-          cardView(
-            records.get(r.id)!,
-            r.ready_id === null ? undefined : ready.get(r.ready_id),
-            r,
-            userId !== undefined,
-            !!profile,
-          ),
-        );
+        const items = await noticeCards(tx, rows, userId, !!profile);
         return pageResponse(items, total, q, !!profile, now);
       },
       { isolationLevel: "RepeatableRead" },

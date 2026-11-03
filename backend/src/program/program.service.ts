@@ -1,3 +1,4 @@
+import { programCards } from "./program.cards.js";
 import { Injectable } from "@nestjs/common";
 import { ApiError, invalid } from "../common/errors.js";
 import { PrismaService } from "../prisma/prisma.service.js";
@@ -5,12 +6,7 @@ import { contentQuery } from "../content/content.query.js";
 import { listProfile, pageResponse } from "../content/content.page.js";
 import { matchingProfile } from "../content/matching-profile.js";
 import { readProgramIndex } from "./program.index.js";
-import {
-  cardSelect,
-  detailSelect,
-  programCard,
-  programDetail,
-} from "./program.view.js";
+import { detailSelect, programDetail } from "./program.view.js";
 
 @Injectable()
 export class ProgramService {
@@ -22,22 +18,8 @@ export class ProgramService {
         const profile = await listProfile(tx, q, "program", userId),
           now = new Date();
         const { rows, total } = await readProgramIndex(tx, q, profile, now);
-        const programs = rows.length
-          ? await tx.program.findMany({
-              where: { id: { in: rows.map((r) => r.id) } },
-              select: cardSelect(userId),
-            })
-          : [];
-        const byId = new Map(programs.map((p) => [p.id, p]));
-        return pageResponse(
-          rows.map((r) =>
-            programCard(byId.get(r.id)!, r, userId !== undefined, !!profile),
-          ),
-          total,
-          q,
-          !!profile,
-          now,
-        );
+        const items = await programCards(tx, rows, userId, !!profile);
+        return pageResponse(items, total, q, !!profile, now);
       },
       { isolationLevel: "RepeatableRead" },
     );

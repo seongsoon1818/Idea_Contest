@@ -25,6 +25,9 @@ export interface IndexRow {
   topic_points: number | bigint;
   grade_points: number | bigint;
   unit_points: number | bigint;
+  saved_at?: Date;
+  reminder_enabled?: number | bigint;
+  unavailable?: number | bigint;
 }
 const sql = Prisma.sql;
 const ids = (values: bigint[]) =>
@@ -34,6 +37,7 @@ type Sources = {
   kind: "notice" | "program";
   base: Prisma.Sql;
   routes: Prisma.Sql;
+  bookmarkUserId?: bigint | undefined;
 };
 function matching(profile: MatchingProfile | null, kind: Sources["kind"]) {
   if (!profile)
@@ -96,17 +100,44 @@ export async function pageIndex(
   if (query.recommendedOnly) filters.push(sql`eligibility<>'MISMATCH'`);
   if (query.days !== null)
     filters.push(sql`days_left BETWEEN 0 AND ${query.days}`);
-  const deadlineOrder = sql`deadline_day IS NULL, deadline_day, end_at IS NULL, end_at, public_id`;
+  const uid = sources.bookmarkUserId;
+  const tie = uid === undefined ? sql`public_id` : sql`saved_public_id`;
+  const deadlineOrder = sql`deadline_day IS NULL, deadline_day, end_at IS NULL, end_at, ${tie}`;
   const sort =
-    query.sort === "latest"
-      ? sql`published_date IS NULL, published_date DESC, public_id`
-      : query.sort === "recommended" && profile
-        ? sql`(topic_points+grade_points+unit_points) DESC, ${deadlineOrder}`
-        : deadlineOrder;
+    query.sort === "saved"
+      ? sql`saved_at DESC, ${tie}`
+      : query.sort === "latest"
+        ? sql`published_date IS NULL, published_date DESC, ${tie}`
+        : query.sort === "recommended" && profile
+          ? sql`(topic_points+grade_points+unit_points) DESC, ${deadlineOrder}`
+          : deadlineOrder;
 
-  const result = await tx.$queryRaw<(IndexRow & { total: bigint })[]>(sql`
-    WITH base AS (
-      ${sources.base}
+  const includeUnavailable =
+    query.status === "all" &&
+    !query.q &&
+    !query.topic &&
+    !query.category &&
+    !query.recommendedOnly &&
+    query.days === null;
+  const saved = program
+    ? sql`SELECT p.id,p.public_id,b.created_at saved_at,b.deadline_reminder_enabled reminder_enabled FROM user_program_bookmarks b JOIN programs p ON p.id=b.program_id WHERE b.user_id=${uid}`
+    : sql`SELECT n.id,n.public_id,b.created_at saved_at,b.deadline_reminder_enabled reminder_enabled FROM user_notice_bookmarks b JOIN notices n ON n.id=b.notice_id WHERE b.user_id=${uid}`;
+  // Keep hidden bookmarks in the same database count, order and page as visible cards.
+  const pageSource =
+    uid === undefined
+      ? sql`SELECT * FROM matches`
+      : sql`
+    SELECT m.*, b.id AS saved_id, b.public_id AS saved_public_id, b.saved_at, b.reminder_enabled, m.id IS NULL AS unavailable
+    FROM saved b LEFT JOIN matches m ON m.id=b.id WHERE m.id IS NOT NULL
+    ${includeUnavailable ? sql`OR NOT EXISTS(SELECT 1 FROM base v WHERE v.id=b.id)` : Prisma.empty}`;
+  type Result = IndexRow & {
+    total: bigint;
+    saved_id?: bigint;
+    saved_public_id?: string;
+  };
+  const result = await tx.$queryRaw<Result[]>(sql`
+    WITH ${uid === undefined ? Prisma.empty : sql`saved AS (${saved}),`} base AS (
+      ${uid === undefined ? sources.base : sql`SELECT visible.* FROM (${sources.base}) visible JOIN saved ON saved.id=visible.id`}
     ), routes AS (
       ${sources.routes}
     ), boundaries AS (
@@ -150,12 +181,18 @@ export async function pageIndex(
         CASE WHEN academic_scope='RESTRICTED' AND unit_match='MATCH' THEN 20 ELSE 0 END AS unit_points
       FROM classified
     ), matches AS (SELECT * FROM scored ${filters.length ? sql`WHERE ${Prisma.join(filters, " AND ")}` : Prisma.empty}),
-    totals AS (SELECT COUNT(*) AS total FROM matches),
-    paged AS (SELECT * FROM matches ORDER BY ${sort} LIMIT ${query.size} OFFSET ${BigInt(query.page - 1) * BigInt(query.size)})
+    candidates AS (${pageSource}), totals AS (SELECT COUNT(*) AS total FROM candidates),
+    paged AS (SELECT * FROM candidates ORDER BY ${sort} LIMIT ${query.size} OFFSET ${BigInt(query.page - 1) * BigInt(query.size)})
     SELECT totals.total,paged.* FROM totals LEFT JOIN paged ON TRUE ORDER BY ${sort}
   `);
   return {
     total: Number(result[0]?.total ?? 0),
-    rows: result.filter((r) => r.id != null),
+    rows: result
+      .filter((r) => r.id != null || r.saved_id != null)
+      .map((r) =>
+        r.saved_id != null && r.saved_public_id != null
+          ? { ...r, id: r.saved_id, public_id: r.saved_public_id }
+          : r,
+      ),
   };
 }

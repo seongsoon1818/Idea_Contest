@@ -8,6 +8,7 @@ import { passwordInput } from "../auth/credentials.js";
 import { AuthService } from "../auth/auth.service.js";
 import { selectable } from "../catalog/academic.js";
 import { profileInput } from "./profile.input.js";
+import { settingsView, updateSettings } from "../notification/settings.js";
 import {
   userSelect,
   userView,
@@ -22,12 +23,20 @@ export class UserService {
     private readonly auth: AuthService,
   ) {}
   async account(viewer: Principal) {
-    const user = await this.db.user.findUnique({
-      where: { id: viewer.userId },
-      select: userSelect,
-    });
-    if (!user) throw revoked();
-    return userView(user);
+    return this.db.$transaction(
+      async (tx) => {
+        const user = await tx.user.findUnique({
+          where: { id: viewer.userId },
+          select: userSelect,
+        });
+        if (!user) throw revoked();
+        return {
+          ...userView(user),
+          notificationSettings: await settingsView(tx, viewer.userId),
+        };
+      },
+      { isolationLevel: "RepeatableRead" },
+    );
   }
   async profile(viewer: Principal) {
     const user = await this.db.user.findUnique({
@@ -121,11 +130,19 @@ export class UserService {
           where: { id: userId },
           data: { name: patch.name },
         });
+      if (patch.notificationSettings)
+        await updateSettings(tx, userId, patch.notificationSettings);
       const updated = await tx.user.findUniqueOrThrow({
         where: { id: userId },
         select: profileSelect,
       });
-      return { user: userView(updated), profile: profileView(updated) };
+      return {
+        user: userView(updated),
+        profile: profileView(updated),
+        ...(full
+          ? {}
+          : { notificationSettings: await settingsView(tx, userId) }),
+      };
     });
   }
 

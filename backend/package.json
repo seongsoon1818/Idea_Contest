@@ -29,6 +29,7 @@
     "@nestjs/cli": "^12.0.5",
     "@nestjs/schematics": "^12.0.4",
     "@types/node": "^26.6.2",
+    "@types/web-push": "^3.6.4",
     "prisma": "7.10.0",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2"
@@ -44,6 +45,7 @@
     "jose": "^6.2.14",
     "mariadb": "^3.5.4",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.2"
+    "rxjs": "^7.8.2",
+    "web-push": "^3.6.7"
   }
 }
