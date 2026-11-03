@@ -13,7 +13,10 @@ function getDatabaseUrl(): string {
     throw new Error("DATABASE_URL 환경 변수가 설정되지 않았습니다.");
   }
 
-  return databaseUrl;
+  const url = new URL(databaseUrl);
+  // v2.2 DATETIME(3) is UTC, including columns with database-side now() defaults.
+  url.searchParams.set("timezone", "+00:00");
+  return url.toString();
 }
 
 @Injectable()
