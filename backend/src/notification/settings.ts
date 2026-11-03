@@ -1,6 +1,12 @@
 import type { Prisma } from "../generated/prisma/client.js";
 import { ApiError, invalid } from "../common/errors.js";
 import { objectInput } from "../common/input.js";
+import { reserveOnChannelActivation } from "./reconcile.js";
+
+export const channelChangeTransaction = {
+  isolationLevel: "ReadCommitted",
+  timeout: 30_000,
+} as const;
 
 export const activeSubscriptions = (userId: bigint, now: Date) => ({
   userId,
@@ -24,6 +30,7 @@ export function settingsInput(raw: unknown) {
 export async function settingsView(
   tx: Prisma.TransactionClient,
   userId: bigint,
+  now = new Date(),
 ) {
   const row = await tx.userNotificationSettings.findUnique({
     where: { userId },
@@ -42,7 +49,7 @@ export async function settingsView(
   return {
     ...row,
     activePushSubscriptionCount: await tx.webPushSubscription.count({
-      where: activeSubscriptions(userId, new Date()),
+      where: activeSubscriptions(userId, now),
     }),
   };
 }
@@ -66,6 +73,7 @@ export function stopPush(
     },
   });
 }
+// Return true when there was no deliverable channel and pending work was stopped.
 export async function stopWithoutChannel(
   tx: Prisma.TransactionClient,
   userId: bigint,
@@ -79,7 +87,7 @@ export async function stopWithoutChannel(
         where: activeSubscriptions(userId, now),
       })))
   )
-    return;
+    return false;
   await stopPush(tx, userId, "NO_DELIVERY_CHANNEL");
   await tx.deadlineReminder.updateMany({
     where: { userId, status: { in: ["PENDING", "PROCESSING"] } },
@@ -91,6 +99,17 @@ export async function stopWithoutChannel(
       lockedUntil: null,
     },
   });
+  return true;
+}
+export async function finishChannelChange(
+  tx: Prisma.TransactionClient,
+  userId: bigint,
+  wasInactive: boolean,
+  now: Date,
+) {
+  const inactive = await stopWithoutChannel(tx, userId, now);
+  if (wasInactive && !inactive)
+    await reserveOnChannelActivation(tx, userId, now);
 }
 export async function revokePush(
   tx: Prisma.TransactionClient,
@@ -111,7 +130,8 @@ export async function updateSettings(
   userId: bigint,
   patch: ReturnType<typeof settingsInput>,
 ) {
-  const old = await settingsView(tx, userId);
+  const now = new Date(),
+    old = await settingsView(tx, userId, now);
   if (patch.deadlinePushEnabled && !old.activePushSubscriptionCount)
     throw new ApiError(
       409,
@@ -119,13 +139,12 @@ export async function updateSettings(
       "유효한 브라우저 구독을 먼저 등록해 주세요.",
     );
   // The last push subscription may have expired while the worker was offline.
-  if (
+  const wasInactive =
     !old.deadlineInAppEnabled &&
-    !(old.deadlinePushEnabled && old.activePushSubscriptionCount)
-  )
-    await stopWithoutChannel(tx, userId, new Date());
+    !(old.deadlinePushEnabled && old.activePushSubscriptionCount);
+  if (wasInactive) await stopWithoutChannel(tx, userId, now);
   await tx.userNotificationSettings.update({ where: { userId }, data: patch });
   if (patch.deadlinePushEnabled === false)
     await stopPush(tx, userId, "PUSH_DISABLED");
-  await stopWithoutChannel(tx, userId, new Date());
+  await finishChannelChange(tx, userId, wasInactive, now);
 }

@@ -9,6 +9,7 @@ import { bookmarkContract } from "./bookmark-contract.mjs";
 import { notificationContract } from "./notification-contract.mjs";
 import { recommendationContract } from "./recommendation-contract.mjs";
 import { emptyHomeContract, homeContract } from "./home-contract.mjs";
+import { channelActivationContract } from "./channel-activation.mjs";
 
 test(
   "HTTP contracts and deadline worker against a disposable MySQL instance",
@@ -561,6 +562,18 @@ test(
         await seedCatalog(db);
         await emptyHomeContract(t, http);
         await homeContract(t, app, db, http);
+      }),
+    ),
+);
+
+test(
+  "U02 and T05 reserve D-1 deadlines atomically when the first channel becomes available",
+  { timeout: 180000 },
+  async (t) =>
+    withMysql((url) =>
+      withTestApi(url, async ({ app, db, http, seedCatalog }) => {
+        await seedCatalog(db);
+        await channelActivationContract(t, app, db, http);
       }),
     ),
 );

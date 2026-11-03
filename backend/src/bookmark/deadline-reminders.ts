@@ -91,7 +91,25 @@ export async function reconcileReminders(
     await cancelPending(tx, userId, scope, now, "NO_DELIVERY_CHANNEL");
     return;
   }
-  if (plan.review || readyId === null || !plan.candidates.size) return;
+  const inserts: Prisma.DeadlineReminderCreateManyInput[] = [];
+  await reserveDeadlines(tx, kind, userId, id, readyId, plan, now, inserts);
+  if (inserts.length) await tx.deadlineReminder.createMany({ data: inserts });
+}
+
+// Update existing jobs under the account/content locks; collect new jobs for one batch insert.
+export async function reserveDeadlines(
+  tx: Prisma.TransactionClient,
+  kind: Kind,
+  userId: bigint,
+  id: bigint,
+  readyId: bigint | null,
+  plan: ReminderPlan,
+  now: Date,
+  inserts: Prisma.DeadlineReminderCreateManyInput[],
+) {
+  if (!plan.channel || plan.review || readyId === null || !plan.candidates.size)
+    return;
+  const scope = reminderScope(kind, userId, id);
   const history = new Map(plan.history.map((h) => [h.dedupKey, h]));
   for (const candidate of plan.candidates.values()) {
     const old = history.get(candidate.dedupKey);
@@ -155,6 +173,6 @@ export async function reconcileReminders(
           attemptCount: 0,
         },
       });
-    } else await tx.deadlineReminder.create({ data });
+    } else inserts.push(data);
   }
 }

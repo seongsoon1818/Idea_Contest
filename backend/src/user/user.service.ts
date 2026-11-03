@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service.js";
+import type { Prisma } from "../generated/prisma/client.js";
 import type { Principal } from "../common/http.js";
 import { invalid, revoked } from "../common/errors.js";
 import { objectInput } from "../common/input.js";
@@ -8,7 +9,11 @@ import { passwordInput } from "../auth/credentials.js";
 import { AuthService } from "../auth/auth.service.js";
 import { selectable } from "../catalog/academic.js";
 import { profileInput } from "./profile.input.js";
-import { settingsView, updateSettings } from "../notification/settings.js";
+import {
+  channelChangeTransaction,
+  settingsView,
+  updateSettings,
+} from "../notification/settings.js";
 import {
   userSelect,
   userView,
@@ -49,7 +54,7 @@ export class UserService {
   async save(viewer: Principal, raw: unknown, full: boolean) {
     const patch = profileInput(raw, full),
       userId = viewer.userId;
-    return this.db.$transaction(async (tx) => {
+    const saveChanges = async (tx: Prisma.TransactionClient) => {
       await lockViewer(tx, viewer);
       const current = await tx.user.findUniqueOrThrow({
         where: { id: userId },
@@ -143,7 +148,11 @@ export class UserService {
           ? {}
           : { notificationSettings: await settingsView(tx, userId) }),
       };
-    });
+    };
+    return this.db.$transaction(
+      saveChanges,
+      patch.notificationSettings ? channelChangeTransaction : undefined,
+    );
   }
 
   async withdraw(viewer: Principal, raw: unknown) {

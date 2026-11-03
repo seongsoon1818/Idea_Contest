@@ -7,6 +7,8 @@ import { PrismaService } from "../prisma/prisma.service.js";
 import { PushTransport, subscriptionInput } from "./push.js";
 import {
   activeSubscriptions,
+  channelChangeTransaction,
+  finishChannelChange,
   revokePush,
   stopWithoutChannel,
   stopPush,
@@ -66,50 +68,48 @@ export class SubscriptionsService {
       );
     const data = subscriptionInput(raw);
     try {
-      return await this.db.$transaction(
-        async (tx) => {
-          await lockViewer(tx, viewer);
-          const userId = viewer.userId,
-            now = new Date();
-          const old = await tx.webPushSubscription.findUnique({
-            where: { endpointHash: data.endpointHash },
-            select: {
-              id: true,
-              userId: true,
-              p256dh: true,
-              auth: true,
-              expirationAt: true,
-            },
-          });
-          if (old && old.userId !== userId) throw conflict();
-          // An expired last subscription must not resurrect an overdue reservation.
-          await stopWithoutChannel(tx, userId, now);
-          if (
-            old &&
-            (old.p256dh !== data.p256dh ||
-              old.auth !== data.auth ||
-              (old.expirationAt && old.expirationAt <= now))
-          )
-            await stopPush(tx, userId, "SUBSCRIPTION_REPLACED", old.id);
-          const row = old
-            ? await tx.webPushSubscription.update({
-                where: { id: old.id },
-                data: {
-                  ...data,
-                  lastSeenAt: now,
-                  revokedAt: null,
-                  revokeReason: null,
-                },
-                select,
-              })
-            : await tx.webPushSubscription.create({
-                data: { ...data, lastSeenAt: now, userId },
-                select,
-              });
-          return { created: !old, subscription: view(row) };
-        },
-        { isolationLevel: "ReadCommitted" },
-      );
+      return await this.db.$transaction(async (tx) => {
+        await lockViewer(tx, viewer);
+        const userId = viewer.userId,
+          now = new Date();
+        const old = await tx.webPushSubscription.findUnique({
+          where: { endpointHash: data.endpointHash },
+          select: {
+            id: true,
+            userId: true,
+            p256dh: true,
+            auth: true,
+            expirationAt: true,
+          },
+        });
+        if (old && old.userId !== userId) throw conflict();
+        // An expired last subscription must not resurrect an overdue reservation.
+        const wasInactive = await stopWithoutChannel(tx, userId, now);
+        if (
+          old &&
+          (old.p256dh !== data.p256dh ||
+            old.auth !== data.auth ||
+            (old.expirationAt && old.expirationAt <= now))
+        )
+          await stopPush(tx, userId, "SUBSCRIPTION_REPLACED", old.id);
+        const row = old
+          ? await tx.webPushSubscription.update({
+              where: { id: old.id },
+              data: {
+                ...data,
+                lastSeenAt: now,
+                revokedAt: null,
+                revokeReason: null,
+              },
+              select,
+            })
+          : await tx.webPushSubscription.create({
+              data: { ...data, lastSeenAt: now, userId },
+              select,
+            });
+        await finishChannelChange(tx, userId, wasInactive, now);
+        return { created: !old, subscription: view(row) };
+      }, channelChangeTransaction);
     } catch (e) {
       if ((e as { code?: string }).code === "P2002") throw conflict();
       throw e;
