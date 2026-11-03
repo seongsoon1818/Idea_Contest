@@ -5,7 +5,20 @@ import { UserModule } from "./user/user.module.js";
 import { CatalogModule } from "./catalog/catalog.module.js";
 import { NoticeModule } from "./notice/notice.module.js";
 
+import { ProgramModule } from "./program/program.module.js";
+import { BookmarkModule } from "./bookmark/bookmark.module.js";
+import { NotificationModule } from "./notification/notification.module.js";
+
 @Module({
-  imports: [PrismaModule, AuthModule, UserModule, CatalogModule, NoticeModule],
+  imports: [
+    PrismaModule,
+    AuthModule,
+    UserModule,
+    CatalogModule,
+    NoticeModule,
+    ProgramModule,
+    BookmarkModule,
+    NotificationModule,
+  ],
 })
 export class AppModule {}

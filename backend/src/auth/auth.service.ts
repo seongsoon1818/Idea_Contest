@@ -1,3 +1,4 @@
+import { revokePush } from "../notification/settings.js";
 import { Injectable } from "@nestjs/common";
 import type { Prisma } from "../generated/prisma/client.js";
 import { PrismaService } from "../prisma/prisma.service.js";
@@ -22,26 +23,6 @@ const badLogin = () =>
   );
 const badRefresh = () =>
   new ApiError(401, "INVALID_REFRESH_TOKEN", "다시 로그인해 주세요.");
-
-async function revokePush(
-  tx: Prisma.TransactionClient,
-  userId: bigint,
-  reason: string,
-  id?: bigint,
-) {
-  await tx.webPushSubscription.updateMany({
-    where: { userId, revokedAt: null, ...(id ? { id } : {}) },
-    data: { revokedAt: new Date(), revokeReason: reason },
-  });
-  await tx.notificationPushDelivery.updateMany({
-    where: {
-      userId,
-      ...(id ? { subscriptionId: id } : {}),
-      status: { in: ["PENDING", "PROCESSING", "RETRY_WAIT"] },
-    },
-    data: { status: "CANCELLED", lockToken: null, lockedUntil: null },
-  });
-}
 
 @Injectable()
 export class AuthService {

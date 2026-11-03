@@ -1,13 +1,13 @@
+import { noticeCards } from "./notice.cards.js";
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { ApiError, invalid } from "../common/errors.js";
-import { matchingProfile } from "./notice.context.js";
+import { matchingProfile } from "../content/matching-profile.js";
+import { listProfile, pageResponse } from "../content/content.page.js";
 import { readIndex } from "./notice.index.js";
 import { noticeQuery } from "./notice.query.js";
 import { documentView } from "./notice.document.js";
 import {
-  cardSummarySelect,
-  cardView,
   detailSummarySelect,
   detailView,
   documentNoticeSelect,
@@ -28,73 +28,11 @@ export class NoticeService {
     const q = noticeQuery(params);
     return this.db.$transaction(
       async (tx) => {
-        if (
-          q.topic &&
-          !(await tx.topic.findFirst({
-            where: { code: q.topic, isActive: true },
-            select: { id: true },
-          }))
-        )
-          invalid("topic", "등록된 관심 분야를 선택하세요.");
-        if (
-          q.category &&
-          !(await tx.noticeCategory.findFirst({
-            where: { code: q.category, isActive: true },
-            select: { id: true },
-          }))
-        )
-          invalid("noticeCategory", "등록된 공지 분류를 선택하세요.");
-        const profile = await matchingProfile(tx, userId),
+        const profile = await listProfile(tx, q, "notice", userId),
           now = new Date();
-        if (q.recommendedOnly && !profile)
-          throw new ApiError(
-            409,
-            "PROFILE_REQUIRED",
-            "추천 프로필을 먼저 완성해 주세요.",
-          );
         const { rows, total } = await readIndex(tx, q, profile, now);
-        const notices = rows.length
-          ? await tx.notice.findMany({
-              where: { id: { in: rows.map((r) => r.id) } },
-              select: metadataSelect(userId, false),
-            })
-          : [];
-        const summaryIds = rows.flatMap((r) =>
-          r.ready_id === null ? [] : [r.ready_id],
-        );
-        const summaries = summaryIds.length
-          ? await tx.noticeSummary.findMany({
-              where: { id: { in: summaryIds } },
-              select: cardSummarySelect,
-            })
-          : [];
-        const records = new Map(notices.map((n) => [n.id, n])),
-          ready = new Map(summaries.map((s) => [s.id, s]));
-        const totalPages = Math.ceil(total / q.size);
-        return {
-          items: rows.map((r) =>
-            cardView(
-              records.get(r.id)!,
-              r.ready_id === null ? undefined : ready.get(r.ready_id),
-              r,
-              userId !== undefined,
-              !!profile,
-            ),
-          ),
-          pagination: {
-            page: q.page,
-            size: q.size,
-            totalItems: total,
-            totalPages,
-            hasNext: q.page < totalPages,
-          },
-          context: {
-            mode: profile ? "PERSONALIZED" : "GENERAL",
-            profileCompleted: !!profile,
-            recommendationPolicyVersion: "rule-v1",
-            generatedAt: now,
-          },
-        };
+        const items = await noticeCards(tx, rows, userId, !!profile);
+        return pageResponse(items, total, q, !!profile, now);
       },
       { isolationLevel: "RepeatableRead" },
     );

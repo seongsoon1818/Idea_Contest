@@ -1,6 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { randomBytes } from "node:crypto";
+import { createECDH, randomBytes } from "node:crypto";
+import https from "node:https";
+import { EventEmitter } from "node:events";
+import webpush from "web-push";
+import { PushTransport } from "../dist/notification/push.js";
 import { SignJWT } from "jose";
 import { profileInput } from "../dist/user/profile.input.js";
 import { selectable } from "../dist/catalog/academic.js";
@@ -16,6 +20,65 @@ import { readFile } from "node:fs/promises";
 
 process.env.JWT_SECRET = randomBytes(48).toString("base64url");
 process.env.ALLOWED_ORIGINS = "http://localhost:8080";
+test("web push stays disabled without keys and sends a signed encrypted request with a bounded TTL", async (t) => {
+  const names = ["VAPID_PUBLIC_KEY", "VAPID_PRIVATE_KEY", "VAPID_SUBJECT"];
+  const old = names.map((k) => process.env[k]);
+  t.after(() =>
+    names.forEach((k, i) => {
+      if (old[i] === undefined) delete process.env[k];
+      else process.env[k] = old[i];
+    }),
+  );
+  names.forEach((k) => delete process.env[k]);
+  assert.deepEqual(new PushTransport().config(), {
+    enabled: false,
+    vapidPublicKey: null,
+  });
+  const pair = webpush.generateVAPIDKeys();
+  process.env.VAPID_PUBLIC_KEY = pair.publicKey;
+  process.env.VAPID_PRIVATE_KEY = pair.privateKey;
+  process.env.VAPID_SUBJECT = "mailto:test@example.org";
+  const client = createECDH("prime256v1");
+  client.generateKeys();
+  const sub = {
+    endpoint: "https://fcm.googleapis.com/fcm/send/mock-only",
+    keys: {
+      p256dh: client.getPublicKey().toString("base64url"),
+      auth: randomBytes(16).toString("base64url"),
+    },
+  };
+  const payload = "private-notification-payload";
+  const http = t.mock.method(https, "request", (options, onResponse) => {
+    assert.equal(options.hostname, "fcm.googleapis.com");
+    const headers = Object.fromEntries(
+      Object.entries(options.headers).map(([k, v]) => [k.toLowerCase(), v]),
+    );
+    assert.equal(Number(headers.ttl), 123);
+    assert.equal(headers["content-encoding"], "aes128gcm");
+    assert.match(headers.authorization, /^vapid /);
+    const req = new EventEmitter();
+    req.write = (body) => {
+      assert(
+        Buffer.isBuffer(body) &&
+          body.length > payload.length &&
+          !body.includes(payload),
+      );
+    };
+    req.end = () => {
+      const res = new EventEmitter();
+      res.statusCode = 201;
+      res.headers = {};
+      onResponse(res);
+      res.emit("end");
+    };
+    return req;
+  });
+  assert.equal(
+    (await new PushTransport().send(sub, payload, 123)).statusCode,
+    201,
+  );
+  assert.equal(http.mock.callCount(), 1);
+});
 test("login ID normalization, unmodified passwords, salted scrypt", async () => {
   assert.equal(loginIdInput("Test0001"), "test0001");
   for (const bad of ["short", "NO987654", "pass 123!", "비밀번호12!"])

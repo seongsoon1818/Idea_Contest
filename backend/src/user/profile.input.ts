@@ -1,15 +1,20 @@
 import { invalid } from "../common/errors.js";
 import { enumInput, idInput, objectInput, textInput } from "../common/input.js";
 import { GRADES } from "../catalog/academic.js";
+import { settingsInput } from "../notification/settings.js";
 
 const keys = ["name", "grade", "academicUnits", "interestCodes"];
 export function profileInput(raw: unknown, full: boolean) {
-  const b = objectInput(raw, keys);
+  const b = objectInput(raw, full ? keys : [...keys, "notificationSettings"]);
   if (!Object.keys(b).length) invalid("body", "변경할 필드가 필요합니다.");
   if (full)
     for (const key of keys)
       if (!Object.hasOwn(b, key)) invalid(key, "필수 필드입니다.", "REQUIRED");
   return {
+    notificationSettings:
+      b.notificationSettings === undefined
+        ? undefined
+        : settingsInput(b.notificationSettings),
     name: b.name === undefined ? undefined : textInput(b.name, "name", 30),
     grade:
       b.grade === undefined ? undefined : enumInput(b.grade, GRADES, "grade"),
