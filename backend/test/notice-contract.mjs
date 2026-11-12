@@ -123,6 +123,7 @@ export async function noticeContract(t, app, db, http) {
   const good = await record({
     title: "취업 장학 지원",
     summary: {
+      tagsJson: ["태그", { evidence: secret }, "WorkSHOP%_!\\lab"],
       audienceJson: {
         description: fact("재학생 안내"),
         qualifications: null,
@@ -341,6 +342,12 @@ export async function noticeContract(t, app, db, http) {
           ),
           term,
         );
+      }
+      for (const term of ["workshop", "%", "_", "!", "\\", "%_!\\LAB"]) {
+        const query = noticeQuery({ status: "all", size: "1", q: term });
+        const found = await readIndex(db, query, null, now);
+        assert.equal(found.total, 1, term);
+        assert.equal(found.rows[0].public_id, good.publicId, term);
       }
       assert.equal(
         (await get("?q=" + secret + "&status=all")).pagination.totalItems,

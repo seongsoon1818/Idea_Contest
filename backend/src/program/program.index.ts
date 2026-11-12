@@ -1,6 +1,7 @@
 import { Prisma } from "../generated/prisma/client.js";
 import type { ContentQuery } from "../content/content.query.js";
 import { pageIndex } from "../content/content.index.js";
+import { jsonArrayContains } from "../content/content.search.js";
 import type { MatchingProfile } from "../content/matching-profile.js";
 
 const sql = Prisma.sql;
@@ -11,7 +12,7 @@ function search(term: string) {
   return sql`AND (${contains(sql`r.title`)} OR ${contains(sql`r.public_summary`)} OR ${contains(sql`c.name`)}
     OR ${contains(sql`t.name`)} OR ${contains(sql`r.source_category`)} OR ${contains(sql`r.audience_text`)}
     OR ${contains(sql`r.points_text`)} OR ${contains(sql`CONCAT(TRIM(TRAILING '.' FROM TRIM(TRAILING '0' FROM CAST(r.points AS CHAR))),'pt')`)}
-    OR EXISTS(SELECT 1 FROM JSON_TABLE(r.tags_json,'$[*]' COLUMNS(txt TEXT PATH '$')) tag WHERE ${contains(sql`tag.txt`)}))`;
+    OR ${jsonArrayContains(sql`r.tags_json`, term)})`;
 }
 export function programSources(
   query: ContentQuery,

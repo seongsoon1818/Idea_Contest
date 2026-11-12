@@ -86,7 +86,7 @@ export async function programContract(t, app, db, http) {
       applicationStatus: "stated",
       ...range(day(-2), day(1)),
       sourceApplicationState: "접수 중",
-      tagsJson: ["직무탐색"],
+      tagsJson: ["직무탐색", { evidence: secret }, "WorkSHOP%_!\\lab"],
     },
   });
   const missing = await record({ url: null, revision: { points: 0 } });
@@ -241,6 +241,12 @@ export async function programContract(t, app, db, http) {
         (await list("?status=all&q=" + secret)).pagination.totalItems,
         0,
       );
+      for (const term of ["workshop", "%", "_", "!", "\\", "%_!\\LAB"]) {
+        const query = contentQuery({ status: "all", size: "1", q: term }, "programCategory");
+        const found = await readProgramIndex(db, query, null, now);
+        assert.equal(found.total, 1, term);
+        assert.equal(found.rows[0].public_id, sample.publicId, term);
+      }
       assert.equal(
         (await list("?q=" + encodeURIComponent("이전 버전") + "&status=all"))
           .pagination.totalItems,

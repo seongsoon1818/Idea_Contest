@@ -4,7 +4,7 @@ import type { Prisma } from "../generated/prisma/client.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { ApiError, disabled, invalid, reauthFailed } from "../common/errors.js";
 import type { Principal } from "../common/http.js";
-import { idInput, objectInput, textInput } from "../common/input.js";
+import { idInput, nameInput, objectInput } from "../common/input.js";
 import {
   hashPassword,
   loginIdInput,
@@ -48,7 +48,7 @@ export class AuthService {
   async signup(raw: unknown) {
     const b = objectInput(raw, ["loginId", "password", "name"]);
     const loginId = loginIdInput(b.loginId),
-      name = textInput(b.name, "name", 30);
+      name = nameInput(b.name);
     const passwordHash = await hashPassword(
       passwordInput(b.password, "password", true),
     );

@@ -190,6 +190,12 @@ test(
             );
             assert.equal(await db.user.count(), 1);
             assert.equal(
+              (await http("POST", "/auth/signup", 400, {
+                body: { loginId: "invalidname", password, name: "지원123" },
+              })).code,
+              "VALIDATION_ERROR",
+            );
+            assert.equal(
               (
                 await http("POST", "/auth/login", 401, {
                   body: { loginId: "nobody", password },
@@ -239,6 +245,14 @@ test(
               academicUnits: units,
               interestCodes: ["career", "study"],
             };
+            assert.equal((await patch({ name: "😊" }, 400)).code, "VALIDATION_ERROR");
+            assert.equal(
+              (await http("PUT", "/users/me/profile", 400, {
+                body: { ...filled, name: "지원123" }, token: first,
+              })).code,
+              "VALIDATION_ERROR",
+            );
+            assert.equal((await profile()).name, "이름수정");
             const p = (
               await http("PUT", "/users/me/profile", 200, {
                 body: filled,

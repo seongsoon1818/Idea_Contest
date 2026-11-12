@@ -29,6 +29,24 @@ export function textInput(value: unknown, field: string, max: number): string {
   return value.trim();
 }
 
+export function nameInput(value: unknown): string {
+  const name = textInput(
+    typeof value === "string" ? value.normalize("NFC") : value,
+    "name",
+    30,
+  );
+  const nameFormat = /^\p{L}[\p{L}\p{M}]*(?:[ '’·-]\p{L}[\p{L}\p{M}]*)*$/u;
+  if (
+    !nameFormat.test(name) ||
+    /[\p{Extended_Pictographic}\uFE0F\u20E3]/u.test(name)
+  )
+    invalid(
+      "name",
+      "이름에는 글자와 악센트, 글자 사이의 공백·하이픈·아포스트로피·가운뎃점을 사용할 수 있습니다.",
+    );
+  return name;
+}
+
 export function idInput(value: unknown, field: string): bigint {
   if (
     typeof value !== "string" ||

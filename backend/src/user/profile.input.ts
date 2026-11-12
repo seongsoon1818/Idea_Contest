@@ -1,5 +1,5 @@
 import { invalid } from "../common/errors.js";
-import { enumInput, idInput, objectInput, textInput } from "../common/input.js";
+import { enumInput, idInput, nameInput, objectInput } from "../common/input.js";
 import { GRADES } from "../catalog/academic.js";
 import { settingsInput } from "../notification/settings.js";
 
@@ -15,7 +15,7 @@ export function profileInput(raw: unknown, full: boolean) {
       b.notificationSettings === undefined
         ? undefined
         : settingsInput(b.notificationSettings),
-    name: b.name === undefined ? undefined : textInput(b.name, "name", 30),
+    name: b.name === undefined ? undefined : nameInput(b.name),
     grade:
       b.grade === undefined ? undefined : enumInput(b.grade, GRADES, "grade"),
     units:

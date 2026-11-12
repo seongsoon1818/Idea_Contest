@@ -1,5 +1,6 @@
 import { Prisma } from "../generated/prisma/client.js";
 import { pageIndex } from "../content/content.index.js";
+import { jsonArrayContains } from "../content/content.search.js";
 import type { MatchingProfile } from "../content/matching-profile.js";
 import type { ContentQuery } from "../content/content.query.js";
 const sql = Prisma.sql;
@@ -9,9 +10,8 @@ function search(term: string) {
     sql`LOCATE(LOWER(${term}), LOWER(${expr}))>0`;
   return sql`AND (${has(sql`r.title`)} OR ${has(sql`s.one_line_summary`)} OR ${has(sql`c.name`)}
     OR ${has(sql`t.name`)} OR ${has(sql`r.source_category`)} OR ${has(sql`JSON_UNQUOTE(JSON_EXTRACT(s.audience_json,'$.description.text'))`)}
-    OR EXISTS(SELECT 1 FROM JSON_TABLE(s.benefits_json,'$[*]' COLUMNS(txt TEXT PATH '$.text', cond TEXT PATH '$.condition')) benefit
-      WHERE ${has(sql`benefit.txt`)} OR ${has(sql`benefit.cond`)})
-    OR EXISTS(SELECT 1 FROM JSON_TABLE(s.tags_json,'$[*]' COLUMNS(txt TEXT PATH '$')) tag WHERE ${has(sql`tag.txt`)}))`;
+    OR ${jsonArrayContains(sql`JSON_EXTRACT(s.benefits_json, '$[*].text', '$[*].condition')`, term)}
+    OR ${jsonArrayContains(sql`s.tags_json`, term)})`;
 }
 
 export function noticeSources(

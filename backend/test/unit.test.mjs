@@ -7,6 +7,7 @@ import webpush from "web-push";
 import { PushTransport } from "../dist/notification/push.js";
 import { SignJWT } from "jose";
 import { profileInput } from "../dist/user/profile.input.js";
+import { nameInput } from "../dist/common/input.js";
 import { selectable } from "../dist/catalog/academic.js";
 import {
   hashPassword,
@@ -88,6 +89,21 @@ test("login ID normalization, unmodified passwords, salted scrypt", async () => 
   assert.notEqual(a, b);
   assert(await verifyPassword("Testing123!", a));
   assert.equal(await verifyPassword("wrong", a), false);
+});
+test("names normalize to NFC and count Unicode code points", () => {
+  for (const name of [
+    "이지원", "李小龍", "Maria García", "Nguyễn Thị Lan", "O’Connor",
+    "O'Connor", "Jean-Luc", "김·이", "किरण", "𠮷".repeat(30),
+  ]) {
+    assert.equal(nameInput("  " + name.normalize("NFD") + "  "), name);
+  }
+  for (const name of [
+    null, "   ", "지원123", "😊", "김@이", "-Kim", "Kim·", "A--B", "A\tB",
+    "\u0301Kim", "Kim \u0301Lee", "𠮷".repeat(31),
+  ]) {
+    assert.throws(() => nameInput(name), (e) =>
+      e.code === "VALIDATION_ERROR" && e.fieldErrors[0]?.field === "name");
+  }
 });
 test("fixed JWT algorithm/issuer/audience, expiry and malformed claims", async () => {
   const tokens = new Tokens(),
