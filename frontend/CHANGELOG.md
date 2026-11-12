@@ -1,5 +1,17 @@
 # 변경 기록
 
+## 2026-11-13 · 계정 API 연결 및 세션 복원 전달
+
+실행 코드 기준: 팀 GitHub `b9c511d8f045751b0b0286dc4028a7c099a79772`. 로컬 `bd32615` 이후 세션 보완을 포함하며 Sites `a07ce30`과 저장소를 구분합니다. 이번 문서 정리는 실행 코드를 바꾸지 않습니다. 버전 관계와 과거 DB 결과는 [정정 인계서](docs/backend-handoff-2026-11-13.md)를 확인하세요.
+
+- `dist/account-api.js`: 회원가입·로그인·복원·로그아웃, 탭 간 갱신 순서 조정 및 제한된 재시도.
+- `dist/login.js`, `index.html`, `styles.css`: 계정 폼 연결과 다시 연결하기 UI.
+- `scripts/local-auth-preview.mjs`: 같은 출처 로컬 API 프록시.
+- `tests/dom-flow.test.mjs`: 계정 폼, 오프라인·서버 장애·시간 초과·재연결 검사 추가. 전체 988개 DOM 동작 단언 통과.
+- [계정 프론트 인계](docs/account-api-delivery.md), [로컬 실행 방법](docs/local-auth-integration.md) 추가.
+- 백엔드와 운영 DB는 이 전달에서 변경하지 않습니다. 운영 API 활성화와 브라우저 전체 연동 검증은 별도입니다.
+
+
 ## 1.17.0 — 2026-10-28 · 알림 기능 추가
 
 알림 관련 변경을 하나의 독립 커밋으로 묶었습니다. [추가·수정 파일 안내](docs/notification-changes-2026-10-28.md)를 먼저 읽어주세요.
