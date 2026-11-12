@@ -1,10 +1,8 @@
 import {usernameError,passwordError,confirmationError} from './auth-rules.js?v=1.16.54';
-import {createAccountApi} from './account-api.js?v=2';
+import {campusApi, usesCampusApi} from './account-api.js?v=3';
 import {getAccountUser,setAccountSession} from './account-session.js?v=1.16.73';
 // Local development uses a same-origin proxy; production can opt in after deployment.
-const apiEnabled=['localhost','127.0.0.1','[::1]'].includes(location.hostname)
- || document.querySelector('meta[name="hsupick-account-api"]')?.getAttribute('content')==='enabled';
-const accountApi=apiEnabled?createAccountApi():null;
+const accountApi=usesCampusApi()?campusApi:null;
 // Browsing permission is a per-tab preview preference, never an authenticated session.
 const screen=document.querySelector('#login-screen');
 const form=document.querySelector('#login-form');
@@ -214,5 +212,6 @@ window.addEventListener('popstate',handleAuthNavigation);
 if(accountApi&&!browsing)void restoreAccount();
 else if(!browsing||isAuthHash(location.hash))welcomeOrLogin();else browse();
 
+window.addEventListener('hsu-session-expired',()=>{if(getAccountUser())setAccountSession(null);});
 // The adapter emits this only after the server logout request succeeds.
 window.addEventListener('hsu-signout',()=>{browsing=false;try{sessionStorage.removeItem(GUEST_KEY);}catch{}returnHash='#recommend';history.replaceState(null,'','#login');showLogin();});

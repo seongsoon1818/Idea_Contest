@@ -1,3 +1,5 @@
+import {usesCampusApi} from './account-api.js?v=3';
+import {createCampusUI} from './campus-ui.js';
 import {createNotificationCenter} from './notifications.js?v=1.17.0';
 import {getAccountUser,subscribeAccountSession,logoutAccount} from './account-session.js?v=1.16.73';
 import {noticeImages} from './notice-images.js?v=1.16.76';
@@ -6,6 +8,7 @@ import {ITEMS,CATEGORIES,NOTICE_CATEGORIES,PROGRAM_CATEGORIES,todayDate,statusOf
 import {TRACK_COLLEGES,trackOptionsForSlot,normalizeTrackSearch,isSelectableTrack} from './tracks.js?v=1.16.54';
 const $=s=>document.querySelector(s);
 const KEY='hsupick-v1';
+const connected=usesCampusApi();
 const paths={bell:'M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4',settings:'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8M12 2v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2M5 19l2-2M17 7l2-2',exclamation:'M10 3h4v12h-4zM12 18a2 2 0 1 0 0 4a2 2 0 0 0 0-4z',pencil:'M16 3l5 5-12 12-6 1 1-6L16 3zM13 6l5 5M4 15l5 5',spark:'M12 3l2.4 6.6L21 12l-6.6 2.4L12 21l-2.4-6.6L3 12l6.6-2.4L12 3z',search:'M21 21l-5-5M19 10a9 9 0 1 1-18 0 9 9 0 0 1 18 0z',bookmark:'M6 4h12v17l-6-4-6 4V4z',user:'M20 21v-2a7 7 0 0 0-14 0v2M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0z',arrow:'M4 12h16m-6-6 6 6-6 6',chevron:'M9 5l7 7-7 7',close:'M6 6l12 12M18 6 6 18',clock:'M12 8v5l3 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z',calendar:'M4 5h16v16H4V5zM8 3v4m8-4v4M4 10h16',wallet:'M3 6h17v14H3V6zM3 6V4h14M16 11h5v5h-5v-5z',briefcase:'M3 7h18v14H3V7zM8 7V3h8v4M3 12h18M10 12v3h4v-3',building:'M4 21V5l8-3 8 3v16M9 21v-5h6v5M8 7h1m6 0h1M8 11h1m6 0h1',trophy:'M7 3h10v6a5 5 0 0 1-10 0V3zM7 5H3v3a4 4 0 0 0 4 4m10-7h4v3a4 4 0 0 1-4 4M12 14v6m-4 1h8',book:'M12 5C9 3 6 3 3 4v15c3-1 6-1 9 1 3-2 6-2 9-1V4c-3-1-6-1-9 1v15',rocket:'M9 15 5 19l-1-5 5-3m4 4 3 5 3-5-4-2M9 15c-4-5 2-11 11-12 0 9-6 15-11 12zM14 8h.01M5 21l2-2',heart:'M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8z',globe:'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0zM3 12h18M12 3c4 5 4 13 0 18-4-5-4-13 0-18z',compare:'M4 4h6v16H4V4zM14 4h6v16h-6V4z',info:'M12 10v6m0-9h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z',external:'M14 3h7v7M10 14 21 3M10 3H3v18h18v-7',check:'M5 12l4 4L19 6',lock:'M5 10h14v11H5V10zM8 10V7a4 4 0 0 1 8 0v3'};
 const icon=(n)=>`<svg class="icon${n==='exclamation'?' icon-exclamation':''}" aria-hidden="true" viewBox="0 0 24 24"><path d="${paths[n]||paths.info}"/></svg>`;
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -14,7 +17,7 @@ const categoryForItem=i=>(i.type==='program'?PROGRAM_CATEGORIES.find(c=>c.id===i
 const listType=()=>view==='saved'?savedTab:view==='recommend'?recommendTab:exploreViews[view]?.type||'all';
 const filterCategories=()=>listType()==='program'?PROGRAM_CATEGORIES:NOTICE_CATEGORIES;
 let storageOK=true, stored={};
-try{const raw=localStorage.getItem(KEY);try{stored=JSON.parse(raw||'{}')||{};}catch{stored={};}}catch{storageOK=false;}
+try{const raw=connected?null:localStorage.getItem(KEY);try{stored=JSON.parse(raw||'{}')||{};}catch{stored={};}}catch{storageOK=false;}
 const isProfile=p=>p&&(p.name===undefined||(typeof p.name==='string'&&p.name.length<=30))&&(p.grade==='other'||[1,2,3,4].includes(Number(p.grade)))&&Array.isArray(p.tracks)&&p.tracks.length>=1&&p.tracks.length<=3&&p.tracks.every(t=>typeof t==='string'&&t.length<=60)&&Array.isArray(p.interests)&&p.interests.length>=1&&p.interests.length<=4&&p.interests.every(id=>CATEGORIES.some(c=>c.id===id));
 let profile=isProfile(stored.profile)?stored.profile:null;
 if(Number(profile?.grade)===1)profile={...profile,tracks:profile.tracks.slice(0,1)};
@@ -24,7 +27,7 @@ const main=$('#main'), modal=$('#modal');
 const mobileLayout=matchMedia('(max-width:800px)');
 const isSavedMobile=()=>view==='saved'&&mobileLayout.matches;
 let searchExpanded=false;
-function persist(){try{localStorage.setItem(KEY,JSON.stringify({profile,saved:[...saved]}));storageOK=true;return true;}catch{storageOK=false;toast('저장 공간을 사용할 수 없어 이번 방문 동안만 유지됩니다.');return false;}}
+function persist(){if(connected)return true;try{localStorage.setItem(KEY,JSON.stringify({profile,saved:[...saved]}));storageOK=true;return true;}catch{storageOK=false;toast('저장 공간을 사용할 수 없어 이번 방문 동안만 유지됩니다.');return false;}}
 function toast(message){$('#toast').textContent=message;$('#toast').classList.add('visible');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('#toast').classList.remove('visible'),2800);}
 const navs=[['recommend','spark','맞춤 추천'],['notices','book','공지사항'],['programs','pencil','비교과프로그램'],['saved','bookmark','MY PICK'],['profile','user','MY PAGE']];
 const CARD_GAP=12;
@@ -66,7 +69,7 @@ function cardFacts(i){
  const grade=!i.grades.length?'원문 확인':i.grades.length===4?'전 학년':i.grades.map(g=>g+'').join('·')+'학년';
  const targetSummary=`<span>${esc(grade)}</span>${i.tracks.length?'<span>지정트랙</span>':''}`;
  const fullDeadline=esc(i.deadline.replaceAll('-','.'));
- return `<dl class="card-facts"><div class="fact-cell"><dt>${icon('user')} 대상</dt><dd class="fact-target" title="${esc(target(i))}" aria-label="대상: ${esc(target(i))}">${targetSummary}</dd></div><div class="fact-cell"><dt>${icon('calendar')} 마감</dt><dd title="${fullDeadline}" aria-label="마감: ${fullDeadline}">${fmt(i.deadline)}까지</dd></div><div class="fact-cell"><dt>${icon('exclamation')} 혜택</dt><dd title="${esc(i.benefit||'미기재 · 원문 확인')}" aria-label="혜택: ${esc(i.benefit||'미기재 · 원문 확인')}">${esc(benefitSummary(i))}</dd></div></dl>`;
+ return `<dl class="card-facts"><div class="fact-cell"><dt>${icon('user')} 대상</dt><dd class="fact-target" title="${esc(target(i))}" aria-label="대상: ${esc(target(i))}"><span class="card-fact-preview">${targetSummary}</span></dd></div><div class="fact-cell"><dt>${icon('calendar')} 마감</dt><dd title="${fullDeadline}" aria-label="마감: ${fullDeadline}"><span class="card-fact-preview">${fmt(i.deadline)}까지</span></dd></div><div class="fact-cell"><dt>${icon('exclamation')} 혜택</dt><dd title="${esc(i.benefit||'미기재 · 원문 확인')}" aria-label="혜택: ${esc(i.benefit||'미기재 · 원문 확인')}"><span class="card-fact-preview">${esc(benefitSummary(i))}</span></dd></div></dl>`;
 }
 function recommendedItems(onlyOpen=true){
  return ITEMS.filter(i=>(!onlyOpen||statusOf(i)==='open')&&(!profile||matchProfile(i,profile).eligible))
@@ -94,7 +97,7 @@ function card(i,featured=false,comparing=false){
  const reason=recommendationReason(i),showReason=!comparing&&(view==='recommend'||isRecommendedTab());
  return `<article class="card ${featured?'featured-card':''} ${comparing?'comparison-card':''}" data-item="${i.id}" data-type="${i.type}" aria-label="${i.type==='notice'?'공지사항':'비교과 프로그램'}: ${esc(i.title)}">
   <div class="card-top"><span class="category-icon ${c.color}">${icon(c.icon)}</span><span class="badge category-badge">${c.name}</span>${ranked?'<span class="rank-badge" title="입력한 학년·트랙·관심 분야에 따른 유형별 조건 기반 1순위">🚩1순위</span>':''}<div class="card-status-actions">${badge(i)}<button class="save-btn ${saved.has(i.id)?'saved':''}" data-action="save" data-id="${i.id}" aria-label="${esc(i.title)} ${saved.has(i.id)?'저장 해제':'저장'}" aria-pressed="${saved.has(i.id)}">${icon('bookmark')}</button></div></div>
-  <div class="card-body"><div class="card-title-row"><button class="title-button" data-action="detail" data-id="${i.id}" aria-label="${esc(i.title)} 상세 정보 보기">${esc(i.title)}</button></div>${i.subtitle?`<p class="card-description">${esc(i.subtitle)}</p>`:''}${cardFacts(i)}${comparing?comparisonDetails(i):''}</div>
+  <div class="card-body"${comparing?'':` data-action="detail" data-id="${i.id}"`}><div class="card-title-row"><button class="title-button" data-action="detail" data-id="${i.id}" aria-label="${esc(i.title)} 상세 정보 보기">${esc(i.title)}</button></div>${i.subtitle?`<p class="card-description">${esc(i.subtitle)}</p>`:''}${cardFacts(i)}${comparing?comparisonDetails(i):''}</div>
   ${showReason?`<div class="recommend-reason ${featured?'single-line':''}">${icon('spark')}<span title="${esc(reason)}">${reason}</span></div>`:''}
   <div class="card-bottom">${comparing?`<button class="remove-compare" data-action="remove-compare" data-id="${i.id}">선택 해제</button>`:`<label class="compare-check"><input type="checkbox" data-compare="${i.id}" ${compared.has(i.id)?'checked':''} aria-label="${esc(i.title)} AI 비교하기 선택">AI 비교하기</label>`}</div>
  </article>`;
@@ -110,7 +113,7 @@ function getList(includeUnavailable=false){
   &&(view!=='saved'||saved.has(i.id)));
  return list.sort((a,b)=>activeSort==='deadline'?a.deadline.localeCompare(b.deadline):activeSort==='latest'?(b.publishedAt||'').localeCompare(a.publishedAt||''):matchProfile(b,profile).score-matchProfile(a,profile).score||a.deadline.localeCompare(b.deadline));
 }
-const sortOptions=()=>[['recommended',profile?'추천순':'기본순'],['deadline','마감 임박순'],['latest','최근 등록순']];
+const sortOptions=()=>[...(connected&&view==='saved'?[['saved','저장순']]:[]),['recommended',connected||profile?'추천순':'기본순'],['deadline','마감 임박순'],['latest','최근 등록순']];
 function closeSortMenu(returnFocus=false){
  const menu=$('#sort-options'),trigger=$('[data-action="toggle-sort"]');
  if(!menu||!trigger)return;
@@ -140,6 +143,7 @@ function filterHtml(){
  const recruitmentFilter=`<label class="check-filter"><input id="open-filter" type="checkbox" ${openOnly?'checked':''}>모집중</label>`;
  const searchTools=mobileLayout.matches?`<div class="search-tools mobile-search-tools ${searchExpanded?'is-expanded':''}"><div class="mobile-search-control"><button type="button" class="search-toggle" data-action="toggle-search" aria-label="검색창 ${searchExpanded?'닫기':'열기'}" aria-expanded="${searchExpanded}" aria-controls="mobile-search-field">${icon('search')}</button><label id="mobile-search-field" class="searchbox" ${searchExpanded?'':'hidden inert'}>${searchExpanded?searchInput:''}</label></div>${sortSelect}${recruitmentFilter}</div>`:`<div class="search-tools"><label class="searchbox">${icon('search')}${searchInput}</label>${sortSelect}${recruitmentFilter}</div>`;
  const firstChip=home?`<button class="chip ${category==='all'?'active':''}" data-category="all" aria-pressed="${category==='all'}">전체</button>`:`<button class="chip recommend-chip ${recommended?'active':''}" data-category="recommended" aria-pressed="${recommended}">${icon('spark')} 추천</button><button class="chip ${category==='all'?'active':''}" data-category="all" aria-pressed="${category==='all'}">전체</button>`;
+ if(connected)return '<div class="filters" aria-label="카테고리 필터">'+campus.categories(listType())+'</div>'+searchTools;
  const categories=filterCategories();
  const categoryChip=c=>`<button class="chip ${category===c.id?'active':''}" data-category="${c.id}" aria-pressed="${category===c.id}"><span>${c.name}</span></button>`;
  const compactNotices=mobileLayout.matches&&listType()==='notice';
@@ -182,6 +186,7 @@ function toggleSearch(){
 }
 
 function resultHtml(){
+ if(connected)return campus.list();
  const list=getList();
  const hiddenSaved=view==='saved'&&openOnly?getList(true).filter(i=>statusOf(i)!=='open').length:0;
  const availability=hiddenSaved?`<div class="saved-availability" role="status"><span>모집 마감·예정 PICK ${hiddenSaved}개가 숨겨져 있어요.</span><button type="button" data-action="show-unavailable">함께 보기</button></div>`:'';
@@ -303,6 +308,7 @@ function setupHeroCarousel(){
  setupStepGestures(carousel.querySelector('.hero-stage'),direction=>setHeroSlide(heroIndex+direction));
 }
 function stats(){
+ if(connected)return campus.home();
  const eligible=recommendedItems();
  const urgent=eligible.filter(i=>daysLeft(i)<=3).length;
  const tiles=[
@@ -320,6 +326,7 @@ function stats(){
 const pageTitle=(label,glyph,exclaim=false)=>`<h1 class="page-title">${icon(glyph)}<span>${esc(label)}${exclaim?'!':''}</span></h1>`;
 function typeTabs(){return `<div class="saved-tabs type-tabs" aria-label="${view==='recommend'?'추천 정보 유형':'저장한 정보 유형'}">${[['notice','book','공지사항'],['program','pencil','비교과 프로그램']].map(([kind,glyph,name])=>`<button class="chip ${listType()===kind?'active':''}" data-tab="${kind}" aria-pressed="${listType()===kind}">${icon(glyph)}${view==='recommend'?`<span>${kind==='notice'?'공지 PICK!':'비교과 PICK!'}</span>`:`<span>${name}</span>`}</button>`).join('')}</div>`;}
 function render(){
+ if(connected)profile=campus.pageProfile();
  renderNav();
  main.classList.toggle('recommend-home',view==='recommend');
  main.classList.toggle('saved-page',view==='saved');
@@ -344,6 +351,7 @@ function renderSaved(){
 }
 
 function profilePage(){
+ if(connected)return campus.myPage()+notificationSettings()+(getAccountUser()?`<section class="account-management"><h2>로그인 관리</h2><div class="profile-card management-menu"><button class="management-menu-row" data-action="account-password">비밀번호 변경</button><button class="management-menu-row" data-action="account-delete">회원 탈퇴</button><button class="management-menu-row" data-action="account-social">소셜 계정 연결</button></div></section>`:'');
  const info=profile?`<dl class="profile-dl profile-summary-list">${[
   ['이름',esc(profile.name||'아직 입력하지 않았어요')],
   ['학년',gradeLabel(profile.grade)],
@@ -367,6 +375,8 @@ async function accountLogout(){
  finally{const current=$('[data-action="account-logout"]');if(current)current.disabled=false;}
 }
 function accountDialog(kind,provider=''){
+ if(connected && ['password','delete'].includes(kind))return campus.security(kind);
+ if(connected && kind==='edit')return campus.editProfile(true);
  const title=kind==='password'?'비밀번호 변경':kind==='delete'?'회원 탈퇴':'소셜 계정 연결';
  const socialOptions=kind==='social'?`<div class="social-connections">${[['kakao','카카오'],['google','구글']].map(([id,label])=>`<button type="button" class="social-connection" data-action="connect-social" data-id="${id}"><span class="provider-symbol ${id}-symbol" aria-hidden="true">${document.querySelector(`[data-login-action="${id}"]`)?.querySelector('.provider-symbol')?.innerHTML||''}</span><span>${label}</span><span class="connection-state">연결하기 ${icon('chevron')}</span></button>`).join('')}</div><p id="social-connect-feedback" class="signup-error" role="status" aria-live="polite"></p>`:'';
  const content=kind==='password'?`<form id="account-password-form" novalidate><label class="account-label">현재 비밀번호<input class="form-input" name="currentPassword" type="password" autocomplete="current-password" required maxlength="256"></label><label class="account-label">새 비밀번호<input class="form-input" name="newPassword" type="password" autocomplete="new-password" required maxlength="32"></label><p class="signup-hint">영문·숫자·특수문자 포함 8~32자</p><label class="account-label">새 비밀번호 확인<input class="form-input" name="confirmPassword" type="password" autocomplete="new-password" required maxlength="32"></label><p id="account-feedback" class="form-error" role="status" aria-live="polite"></p><button class="primary" type="submit">비밀번호 변경</button></form>`:`${kind==='delete'?'<ul class="management-explanation"><li>한성 PICK 계정</li><li>이름·학년·트랙·관심 분야</li><li>저장한 MY PICK</li></ul><p class="account-description">연결된 카카오·구글 계정 자체는 삭제되지 않습니다.</p>':''}<p class="account-notice">현재 계정 서버가 연결되지 않아 ${kind==='delete'?'회원 탈퇴를 진행할':'소셜 계정을 연결할'} 수 없어요.</p>${socialOptions}`;
@@ -412,6 +422,7 @@ function restoreMobile(state){
  if(kind?.startsWith('detail-'))detail(kind.slice(7));
  else if(kind?.startsWith('source-'))source(kind.slice(7));
  else if(kind?.startsWith('quick-list-'))quickList(kind.slice(11));
+ else if(connected&&kind==='campus-profile')campus.editProfile();
  else if(kind==='profile-1'||kind==='profile-2')profileStep(kind==='profile-1'?1:2);
  else if(kind==='track-picker'&&trackPicker)renderTrackPicker();
  else if(kind==='compare')comparison();
@@ -447,10 +458,12 @@ function finishOnboarding(start=false){
 }
 window.addEventListener('hsu-onboarding-start',()=>showOnboarding(0,true));
 window.addEventListener('hsu-app-enter',()=>{
+ if(connected){campus.refresh();campus.loadProfile();}
  let seen=onboardingSeen;try{seen=seen||localStorage.getItem(ONBOARDING_KEY)==='1';}catch{}
  if(!seen&&!modal.open)showOnboarding();
 });
 function quickList(kind){
+ if(connected)return campus.quick(kind);
  const urgent=kind==='urgent';
  const list=recommendedItems().filter(i=>!urgent||daysLeft(i)<=3);
  if(urgent)list.sort((a,b)=>a.deadline.localeCompare(b.deadline));
@@ -478,7 +491,7 @@ function updateProfileProgress(){if(!mobileLayout.matches||!$('#profile-form'))r
 function trackFields(){
  return (Number(draft.grade)===1?[1]:[1,2,3]).map(n=>`<div class="form-group track-field"><label class="form-label" for="track-picker-${n}">${n}트랙${n<=(Number(draft.grade)===1?1:2)?' <span>필수</span>':' <span>선택</span>'}</label><input type="hidden" id="track${n}" name="track${n}" value="${esc(draft.tracks[n-1]||'')}"><div class="track-field-control"><button type="button" class="form-input track-picker-trigger ${draft.tracks[n-1]?'has-value':''}" id="track-picker-${n}" data-action="pick-track" data-slot="${n}" aria-haspopup="dialog"><span>${esc(draft.tracks[n-1]||(n===1&&Number(draft.grade)===1?'소속 대학·학부·학과를 선택해 주세요':`${n}트랙을 선택해 주세요`))}</span>${icon('chevron')}</button>${n>1&&draft.tracks[n-1]?`<button type="button" class="track-clear" data-action="clear-track" data-slot="${n}" aria-label="${n}트랙 선택 해제">${icon('close')}</button>`:''}</div></div>`).join('');
 }
-function startProfile(){profileEpoch++;profileOrigin=profile?view:null;draft=profile?structuredClone(profile):{name:'',grade:null,tracks:[''],interests:[]};draft.tracks=draft.tracks.map(t=>t==='미정'?'':t);profileBaseline=profileDraftKey(draft);profileStep(1);}
+function startProfile(){if(connected)return campus.editProfile();profileEpoch++;profileOrigin=profile?view:null;draft=profile?structuredClone(profile):{name:'',grade:null,tracks:[''],interests:[]};draft.tracks=draft.tracks.map(t=>t==='미정'?'':t);profileBaseline=profileDraftKey(draft);profileStep(1);}
 function profileStep(step){
  if(Number(draft.grade)===1)draft.tracks=draft.tracks.slice(0,1);
  if(step===1){
@@ -577,6 +590,7 @@ function officialUrl(item){
  return sourceUrl(item.type);
 }
 function detail(id){
+ if(connected)return campus.detail(id);
  const i=ITEMS.find(i=>i.id===id);if(!i)return;
  const shortcut=`<a class="secondary official-shortcut" href="${esc(officialUrl(i))}" target="_blank" rel="noopener noreferrer">${i.type==='notice'?'공지사항':'스마트자기관리시스템'} 바로가기 ${icon('external')}</a>`;
  openModal(`${modalHead(i.title,'',categoryForItem(i).name)}<div class="modal-content">
@@ -591,11 +605,13 @@ function detail(id){
  </div><div class="modal-footer">${mobileLayout.matches?`<button class="primary" data-action="save" data-id="${i.id}" aria-pressed="${saved.has(i.id)}" aria-label="${saved.has(i.id)?'MY PICK 저장 해제':'MY PICK에 저장'}">${icon('bookmark')} MY PICK</button><button class="secondary" data-action="detail-back">뒤로가기</button>`:`<button class="secondary" data-action="toggle-detail-compare" data-id="${i.id}">${icon('compare')} ${compared.has(i.id)?'비교 해제':'AI 비교하기'}</button><button class="primary" data-action="save" data-id="${i.id}" aria-pressed="${saved.has(i.id)}" aria-label="${saved.has(i.id)?'MY PICK 저장 해제':'MY PICK에 저장'}">${icon('bookmark')} MY PICK</button><button class="secondary" data-action="detail-back">뒤로가기</button>`}</div>`,'detail-'+id);
 }
 function source(id){
+ if(connected)return campus.source(id);
  const i=ITEMS.find(i=>i.id===id);if(!i)return;if(i.type==='program'){detail(id);return;}
  const raw=`${i.title}\n\n작성 부서: ${i.department}\n등록일: ${i.publishedAt?i.publishedAt.slice(0,10):'(기재 없음)'}\n\n${i.subtitle}\n\n■ 모집 대상\n${target(i)}\n\n■ 신청 기간\n${i.start} ~ ${i.deadline}\n\n■ 활동 / 결과 안내\n${i.eventAt||'(기재 없음)'}\n\n■ 참여 혜택\n${i.benefit||'(기재 없음)'}\n\n■ 제출 / 준비사항\n${i.preparations.length?i.preparations.map((x,n)=>(n+1)+'. '+x).join('\n'):'(기재 없음)'}`;
  openModal(`${modalHead('공지 내용',i.title)}<div class="modal-content">${imageGallery(i)}<div class="raw-document">${esc(raw)}</div>${applicationNotice()}<a class="secondary official-shortcut" href="${esc(officialUrl(i))}" target="_blank" rel="noopener noreferrer">${i.type==='notice'?'공지사항':'스마트자기관리시스템'} 바로가기 ${icon('external')}</a></div><div class="modal-footer"><button class="primary" data-action="detail" data-id="${i.id}">상세 정보로 돌아가기</button></div>`,'source-'+id);
 }
 function comparison(){
+ if(connected)return campus.compare();
  if(compared.size<2)return;
  const list=ITEMS.filter(i=>compared.has(i.id));
  const groups=['notice','program'].map(kind=>{
@@ -618,18 +634,18 @@ function about(){
 function navigate(next,updateHash=true){
  if(!validView(next))return;
  if(updateHash)rememberMobile();
- if(next==='saved'&&!savedTypeCount(savedTab)&&savedTypeCount(savedTab==='notice'?'program':'notice'))savedTab=savedTab==='notice'?'program':'notice';
- view=next;searchExpanded=false;heroIndex=0;carouselIndices.notice=0;carouselIndices.program=0;category='all';query='';type=listType();sort='recommended';openOnly=true;
+ if(!connected&&next==='saved'&&!savedTypeCount(savedTab)&&savedTypeCount(savedTab==='notice'?'program':'notice'))savedTab=savedTab==='notice'?'program':'notice';
+ view=next;searchExpanded=false;heroIndex=0;carouselIndices.notice=0;carouselIndices.program=0;category='all';query='';type=listType();sort=connected?(view==='saved'?'saved':view==='recommend'?'recommended':'latest'):'recommended';openOnly=connected?view==='recommend':true;
  if(updateHash&&location.hash!=='#'+next)history.pushState(null,'','#'+next);render();renderTray();overlayDepth=0;window.scrollTo({top:0,behavior:'instant'});rememberMobile();
 }
-function toggleSave(id){if(!ITEMS.some(i=>i.id===id))return;const removing=saved.has(id);removing?saved.delete(id):saved.add(id);const ok=persist();const kind=modalView;const active=document.activeElement;const attr=active?.dataset?.action;const modalScroll=modal.scrollTop,contentScroll=modal.querySelector('.modal-content')?.scrollTop||0;render();renderTray();if(kind==='compare')comparison();else if(kind?.startsWith('quick-list-'))quickList(kind.slice(11));else if(kind?.startsWith('detail-'))detail(kind.slice(7));if(modal.open&&attr==='save')modal.querySelector(`[data-action="save"][data-id="${id}"]`)?.focus();else if(!modal.open)document.querySelector(`[data-action="save"][data-id="${id}"]`)?.focus();if(modal.open){modal.scrollTop=modalScroll;const content=modal.querySelector('.modal-content');if(content)content.scrollTop=contentScroll;}toast(ok?(removing?'MY PICK에서 삭제했어요.':'MY PICK에 저장했어요.'):'저장 공간을 사용할 수 없어 이번 방문 동안만 유지됩니다.');}
+function toggleSave(id){if(connected)return campus.bookmark(id);if(!ITEMS.some(i=>i.id===id))return;const removing=saved.has(id);removing?saved.delete(id):saved.add(id);const ok=persist();const kind=modalView;const active=document.activeElement;const attr=active?.dataset?.action;const modalScroll=modal.scrollTop,contentScroll=modal.querySelector('.modal-content')?.scrollTop||0;render();renderTray();if(kind==='compare')comparison();else if(kind?.startsWith('quick-list-'))quickList(kind.slice(11));else if(kind?.startsWith('detail-'))detail(kind.slice(7));if(modal.open&&attr==='save')modal.querySelector(`[data-action="save"][data-id="${id}"]`)?.focus();else if(!modal.open)document.querySelector(`[data-action="save"][data-id="${id}"]`)?.focus();if(modal.open){modal.scrollTop=modalScroll;const content=modal.querySelector('.modal-content');if(content)content.scrollTop=contentScroll;}toast(ok?(removing?'MY PICK에서 삭제했어요.':'MY PICK에 저장했어요.'):'저장 공간을 사용할 수 없어 이번 방문 동안만 유지됩니다.');}
 function toggleCompare(id){if(compared.has(id)){compared.delete(id);}else if(compared.size===3){toast('최대 3개까지 비교할 수 있어요. 기존 선택을 해제해 주세요.');const check=document.querySelector(`[data-compare="${id}"]`);if(check)check.checked=false;return false;}else{compared.add(id);}document.querySelectorAll('[data-compare]').forEach(el=>el.checked=compared.has(el.dataset.compare));renderTray();return true;}
 function completeComparison(){compared.clear();document.querySelectorAll('[data-compare]').forEach(el=>el.checked=false);renderTray();backInApp(true);}
 function resetConfirm(local=false){if(!local){openModal(`${modalHead('추천 정보를 다시 설정할까요?','')}<div class="modal-content"><ul class="management-explanation"><li>학년·트랙·관심 분야를 다시 선택할 수 있어요.</li><li>저장한 ${saved.size}개의 MY PICK은 유지됩니다.</li><li>새 정보를 저장하기 전까지 기존 정보가 유지됩니다.</li></ul></div><div class="modal-footer"><button class="secondary" data-action="close">취소</button><button class="primary" data-action="restart-profile">다시 입력하기</button></div>`,'reset-profile');return;}openModal(`${modalHead('나의 데이터를 초기화할까요?','내 정보와 MY PICK이 이 브라우저에서 삭제됩니다.')}<div class="modal-content"><p class="detail-overview">저장한 ${saved.size}개의 PICK과 학년·트랙·관심 분야를 지워요.<br class="mobile-copy"> 다시 입력하여 추천을 시작할 수 있습니다.</p></div><div class="modal-footer"><button class="secondary" data-action="close">취소</button><button class="primary" data-action="reset-data">초기화하기</button></div>`,'reset');}
-document.addEventListener('click',e=>{const anchor=e.target.closest('a'),href=anchor?.getAttribute('href');const nav=e.target.closest('.nav-item')||(!anchor?.dataset.action&&href?.startsWith('#')&&validView(href.slice(1))?anchor:null);if(nav&&!e.metaKey&&!e.ctrlKey&&!e.shiftKey&&!e.altKey){e.preventDefault();if((modalView==='profile-1'||modalView==='profile-2')&&profileChanged()){confirmProfileDiscard(nav.getAttribute('href').slice(1));return;}if(modal.open)closeModal();navigate(nav.getAttribute('href').slice(1));return;}if(!e.target.closest('.mini-my-wrap')){const menu=$('#mini-my-menu');if(menu)menu.hidden=true;$('.avatar')?.setAttribute('aria-expanded','false');}if(e.target.closest('#mini-my-menu')){$('#mini-my-menu').hidden=true;$('.avatar').setAttribute('aria-expanded','false');}if(e.target.closest('[data-login-action]')&&modal.open)modal.close();if(!e.target.closest('.sort-dropdown'))closeSortMenu();const el=e.target.closest('[data-action]');if(el){const a=el.dataset.action,id=el.dataset.id;if(a==='notifications'){if(modal.open)closeModal();navigate('notifications');refreshNotifications();return;}if(a==='notification-settings'){navigate('profile');$('#notification-settings-title')?.scrollIntoView?.({block:'start'});return;}if(a==='notification-read-all'||a==='notification-open'){handleNotificationClick(a,id);return;}if(a==='notification-push'){enablePush();return;}if(a==='onboarding-open'){showOnboarding(0,false);return;}if(a==='onboarding-skip'){finishOnboarding();return;}if(a==='onboarding-next'){showOnboarding(onboardingStep+1);return;}if(a==='onboarding-previous'){showOnboarding(onboardingStep-1);return;}if(a==='onboarding-finish'){finishOnboarding(true);return;}if(a==='account-logout'){accountLogout();return;}if(a==='keep-profile'){discardDestination=null;backInApp();return;}if(a==='discard-profile'){profileBaseline=profileDraftKey(draft);profileEpoch++;if(discardDestination)pendingDestination=discardDestination;discardDestination=null;modalView='profile-discarded';backInApp(true);return;}if(a==='image-open'){imageViewer(id,Number(el.dataset.index));return;}if(a==='mini-my'){const menu=$('#mini-my-menu');menu.hidden=!menu.hidden;el.setAttribute('aria-expanded',String(!menu.hidden));return;}if(a==='account-social'){accountDialog('social');return;}if(a==='connect-social'){const feedback=$('#social-connect-feedback');if(feedback)feedback.textContent=`계정 서버가 연결되지 않아 ${id==='kakao'?'카카오':'구글'} 계정을 연결할 수 없어요.`;return;}if(a==='account-password'){accountDialog('password');return;}if(a==='account-delete'){accountDialog('delete');return;}if(a==='restart-profile'){profileEpoch++;profileOrigin=profile?view:null;draft={name:profile?.name||'',grade:null,tracks:[''],interests:[]};profileBaseline=profileDraftKey(draft);profileStep(1);return;}if(a==='toggle-sort'){toggleSortMenu();return;}if(a==='select-sort'){applySort(id);closeSortMenu(true);return;}if(a==='card-previous'||a==='card-next'){slideCarousel(el.dataset.kind,a==='card-previous'?-1:1);return;}if(a==='hero-previous'){setHeroSlide(heroIndex-1);return;}if(a==='hero-next'){setHeroSlide(heroIndex+1);return;}if(a==='hero-select'){setHeroSlide(id);return;}if(a==='quick-open'||a==='quick-urgent'){quickList(a==='quick-urgent'?'urgent':'open');return;}if(a==='toggle-search'){toggleSearch();return;}if(a==='pick-track'){openTrackPicker(el.dataset.slot);return;}if(a==='cancel-track'){returnFromTrackPicker();return;}if(a==='select-track'){selectTrackOption(id);return;}if(a==='clear-track'){captureProfileDraft();draft.tracks[Number(el.dataset.slot)-1]='';profileStep(1);$('#track-picker-'+el.dataset.slot)?.focus();return;}if(a==='track-filter-menu'){trackPicker.menu=trackPicker.menu===el.dataset.kind?null:el.dataset.kind;renderTrackPicker();modal.querySelector(`[data-action="track-filter-menu"][data-kind="${el.dataset.kind}"]`)?.focus();return;}if(a==='track-filter-value'){trackPicker.browsing=true;trackPicker[el.dataset.kind]=id;if(el.dataset.kind==='college')trackPicker.group='all';trackPicker.menu=null;renderTrackPicker();modal.querySelector(`[data-action="track-filter-menu"][data-kind="${el.dataset.kind}"]`)?.focus();return;}if(a==='source')e.preventDefault();if(a==='remove-compare'){toggleCompare(id);if(compared.size>=2)comparison();else{closeModal();toast('두 개 이상 선택하면 비교할 수 있어요.');}}else if(a==='profile')startProfile();else if(a==='profile-back')backInApp();else if(a==='detail')detail(id);else if(a==='source')source(id);else if(a==='save')toggleSave(id);else if(a==='close')backInApp(true);else if(a==='detail-back')backInApp();else if(a==='complete-compare')completeComparison();else if(a==='about')about();else if(a==='compare')comparison();else if(a==='clear-compare'){compared.clear();renderResults();renderTray();}else if(a==='toggle-detail-compare'){if(toggleCompare(id))detail(id);}else if(a==='show-unavailable'){openOnly=false;render();}else if(a==='go-saved')navigate('saved');else if(a==='go-recommend')navigate('recommend');else if(a==='go-notices')navigate('notices');else if(a==='go-programs')navigate('programs');else if(a==='reset-confirm')resetConfirm();else if(a==='reset-local-confirm')resetConfirm(true);else if(a==='reset-data'){profile=null;saved.clear();compared.clear();profileEpoch++;draft=null;pendingProfileDraft=null;profileOrigin=null;discardDestination=null;persist();closeModal();navigate('recommend');toast('내 정보와 MY PICK을 초기화했어요.');}return;}const c=e.target.closest('[data-category]');if(c){category=c.dataset.category;if(category==='recommended'){query='';sort='recommended';if(!isSavedMobile())openOnly=true;}const filterX=$('.filters').scrollLeft;render();$('.filters').scrollLeft=filterX;main.querySelector(`[data-category="${category}"]`)?.focus();}const t=e.target.closest('[data-tab]');if(t){const recommended=isRecommendedTab()&&!isSavedMobile();if(view==='recommend')recommendTab=t.dataset.tab;else savedTab=t.dataset.tab;type=listType();category=recommended?'recommended':'all';query='';sort='recommended';openOnly=true;render();main.querySelector(`[data-tab="${listType()}"]`)?.focus();}});
+document.addEventListener('click',e=>{const anchor=e.target.closest('a'),href=anchor?.getAttribute('href');const nav=e.target.closest('.nav-item')||(!anchor?.dataset.action&&href?.startsWith('#')&&validView(href.slice(1))?anchor:null);if(nav&&!e.metaKey&&!e.ctrlKey&&!e.shiftKey&&!e.altKey){e.preventDefault();if((modalView==='profile-1'||modalView==='profile-2')&&profileChanged()){confirmProfileDiscard(nav.getAttribute('href').slice(1));return;}if(modal.open)closeModal();navigate(nav.getAttribute('href').slice(1));return;}if(!e.target.closest('.mini-my-wrap')){const menu=$('#mini-my-menu');if(menu)menu.hidden=true;$('.avatar')?.setAttribute('aria-expanded','false');}if(e.target.closest('#mini-my-menu')){$('#mini-my-menu').hidden=true;$('.avatar').setAttribute('aria-expanded','false');}if(e.target.closest('[data-login-action]')&&modal.open)modal.close();if(!e.target.closest('.sort-dropdown'))closeSortMenu();const el=e.target.closest('[data-action]');if(el){const a=el.dataset.action,id=el.dataset.id;if(connected&&campus.action(a,id))return;if(a==='notifications'){if(modal.open)closeModal();navigate('notifications');refreshNotifications();return;}if(a==='notification-settings'){navigate('profile');$('#notification-settings-title')?.scrollIntoView?.({block:'start'});return;}if(a==='notification-read-all'||a==='notification-open'){handleNotificationClick(a,id);return;}if(a==='notification-push'){enablePush();return;}if(a==='onboarding-open'){showOnboarding(0,false);return;}if(a==='onboarding-skip'){finishOnboarding();return;}if(a==='onboarding-next'){showOnboarding(onboardingStep+1);return;}if(a==='onboarding-previous'){showOnboarding(onboardingStep-1);return;}if(a==='onboarding-finish'){finishOnboarding(true);return;}if(a==='account-logout'){accountLogout();return;}if(a==='keep-profile'){discardDestination=null;backInApp();return;}if(a==='discard-profile'){profileBaseline=profileDraftKey(draft);profileEpoch++;if(discardDestination)pendingDestination=discardDestination;discardDestination=null;modalView='profile-discarded';backInApp(true);return;}if(a==='image-open'){imageViewer(id,Number(el.dataset.index));return;}if(a==='mini-my'){const menu=$('#mini-my-menu');menu.hidden=!menu.hidden;el.setAttribute('aria-expanded',String(!menu.hidden));return;}if(a==='account-social'){accountDialog('social');return;}if(a==='connect-social'){const feedback=$('#social-connect-feedback');if(feedback)feedback.textContent=`계정 서버가 연결되지 않아 ${id==='kakao'?'카카오':'구글'} 계정을 연결할 수 없어요.`;return;}if(a==='account-password'){accountDialog('password');return;}if(a==='account-delete'){accountDialog('delete');return;}if(a==='restart-profile'){profileEpoch++;profileOrigin=profile?view:null;draft={name:profile?.name||'',grade:null,tracks:[''],interests:[]};profileBaseline=profileDraftKey(draft);profileStep(1);return;}if(a==='toggle-sort'){toggleSortMenu();return;}if(a==='select-sort'){applySort(id);closeSortMenu(true);return;}if(a==='card-previous'||a==='card-next'){slideCarousel(el.dataset.kind,a==='card-previous'?-1:1);return;}if(a==='hero-previous'){setHeroSlide(heroIndex-1);return;}if(a==='hero-next'){setHeroSlide(heroIndex+1);return;}if(a==='hero-select'){setHeroSlide(id);return;}if(a==='quick-open'||a==='quick-urgent'){quickList(a==='quick-urgent'?'urgent':'open');return;}if(a==='toggle-search'){toggleSearch();return;}if(a==='pick-track'){openTrackPicker(el.dataset.slot);return;}if(a==='cancel-track'){returnFromTrackPicker();return;}if(a==='select-track'){selectTrackOption(id);return;}if(a==='clear-track'){captureProfileDraft();draft.tracks[Number(el.dataset.slot)-1]='';profileStep(1);$('#track-picker-'+el.dataset.slot)?.focus();return;}if(a==='track-filter-menu'){trackPicker.menu=trackPicker.menu===el.dataset.kind?null:el.dataset.kind;renderTrackPicker();modal.querySelector(`[data-action="track-filter-menu"][data-kind="${el.dataset.kind}"]`)?.focus();return;}if(a==='track-filter-value'){trackPicker.browsing=true;trackPicker[el.dataset.kind]=id;if(el.dataset.kind==='college')trackPicker.group='all';trackPicker.menu=null;renderTrackPicker();modal.querySelector(`[data-action="track-filter-menu"][data-kind="${el.dataset.kind}"]`)?.focus();return;}if(a==='source')e.preventDefault();if(a==='remove-compare'){toggleCompare(id);if(compared.size>=2)comparison();else{closeModal();toast('두 개 이상 선택하면 비교할 수 있어요.');}}else if(a==='profile')startProfile();else if(a==='profile-back')backInApp();else if(a==='detail')detail(id);else if(a==='source')source(id);else if(a==='save')toggleSave(id);else if(a==='close')backInApp(true);else if(a==='detail-back')backInApp();else if(a==='complete-compare')completeComparison();else if(a==='about')about();else if(a==='compare')comparison();else if(a==='clear-compare'){compared.clear();renderResults();renderTray();}else if(a==='toggle-detail-compare'){if(toggleCompare(id))detail(id);}else if(a==='show-unavailable'){openOnly=false;render();}else if(a==='go-saved')navigate('saved');else if(a==='go-recommend')navigate('recommend');else if(a==='go-notices')navigate('notices');else if(a==='go-programs')navigate('programs');else if(a==='reset-confirm')resetConfirm();else if(a==='reset-local-confirm')resetConfirm(true);else if(a==='reset-data'){profile=null;saved.clear();compared.clear();profileEpoch++;draft=null;pendingProfileDraft=null;profileOrigin=null;discardDestination=null;persist();closeModal();navigate('recommend');toast('내 정보와 MY PICK을 초기화했어요.');}return;}const c=e.target.closest('[data-category]');if(c){category=c.dataset.category;if(category==='recommended'){query='';sort='recommended';if(!isSavedMobile())openOnly=true;}const filterX=$('.filters').scrollLeft;render();$('.filters').scrollLeft=filterX;main.querySelector(`[data-category="${category}"]`)?.focus();}const t=e.target.closest('[data-tab]');if(t){const recommended=isRecommendedTab()&&!isSavedMobile();if(view==='recommend')recommendTab=t.dataset.tab;else savedTab=t.dataset.tab;type=listType();category=recommended?'recommended':'all';query='';sort=connected&&view==='saved'?'saved':'recommended';openOnly=connected?view==='recommend':true;render();main.querySelector(`[data-tab="${listType()}"]`)?.focus();}});
 document.addEventListener('change',e=>{if(e.target.dataset.notificationSetting){updateNotificationSetting(e.target);return;}if(e.target.dataset.compare){const id=e.target.dataset.compare;toggleCompare(id);if(modalView?.startsWith('quick-list-')){quickList(modalView.slice(11));modal.querySelector(`[data-compare="${id}"]`)?.focus();}return;}if(e.target.id==='type-filter'){type=e.target.value;renderResults();}else if(e.target.id==='sort-filter'){applySort(e.target.value);}else if(e.target.id==='open-filter'){openOnly=e.target.checked;renderResults();}});
-document.addEventListener('input',e=>{if(e.target.id==='track-search'){trackPicker.search=e.target.value;$('#track-results').innerHTML=trackResultsHtml();return;}if(e.target.id==='search-input'){query=e.target.value;renderResults();}});
-function route(event){if(event?.type==='popstate'&&(modalView==='profile-1'||modalView==='profile-2')&&!['profile-1','profile-2','track-picker'].includes(history.state?.hsuUI?.modal)&&profileChanged()){const current=mobileSnapshot();history.pushState({hsuUI:current},'','#'+view);confirmProfileDiscard();return;}if(event?.type==='popstate'&&history.state?.hsuUI){restoreMobile(history.state.hsuUI);return;}const hash=location.hash.slice(1);if(hash.startsWith('notice/')){let id;try{id=decodeURIComponent(hash.slice(7));}catch{id='';}const item=ITEMS.find(i=>i.id===id);navigate('notifications',false);if(item)detail(id);else toast('더 이상 제공되지 않는 소식이에요.');return;}if(event?.type==='hashchange'&&history.state?.hsuUI?.view===hash){restoreMobile(history.state.hsuUI);return;}if(hash.startsWith('source/')){const id=hash.slice(7),item=ITEMS.find(i=>i.id===id);if(item){navigate(item.type==='notice'?'notices':'programs',false);source(id);return;}}const next=hash==='explore'?'notices':validView(hash)?hash:'recommend';if(modal.open)closeModal();navigate(next,false);if(hash==='explore')history.replaceState(null,'','#notices');}
+document.addEventListener('input',e=>{if(e.target.id==='track-search'){trackPicker.search=e.target.value;$('#track-results').innerHTML=trackResultsHtml();return;}if(e.target.id==='search-input'){query=e.target.value;if(connected)campus.search();else renderResults();}});
+function route(event){if(event?.type==='popstate'&&(modalView==='profile-1'||modalView==='profile-2')&&!['profile-1','profile-2','track-picker'].includes(history.state?.hsuUI?.modal)&&profileChanged()){const current=mobileSnapshot();history.pushState({hsuUI:current},'','#'+view);confirmProfileDiscard();return;}if(event?.type==='popstate'&&history.state?.hsuUI){restoreMobile(history.state.hsuUI);return;}const hash=location.hash.slice(1);if(connected){const ref=/^(notice|program|source)\/([a-zA-Z0-9_-]{1,128})$/.exec(hash);if(ref){const type=ref[1]==='program'?'program':'notice';navigate(type+'s',false);const key=type+':'+ref[2];if(ref[1]==='source')source(key);else detail(key);return;}}if(hash.startsWith('notice/')){let id;try{id=decodeURIComponent(hash.slice(7));}catch{id='';}const item=ITEMS.find(i=>i.id===id);navigate('notifications',false);if(item)detail(id);else toast('더 이상 제공되지 않는 소식이에요.');return;}if(event?.type==='hashchange'&&history.state?.hsuUI?.view===hash){restoreMobile(history.state.hsuUI);return;}if(hash.startsWith('source/')){const id=hash.slice(7),item=ITEMS.find(i=>i.id===id);if(item){navigate(item.type==='notice'?'notices':'programs',false);source(id);return;}}const next=hash==='explore'?'notices':validView(hash)?hash:'recommend';if(modal.open)closeModal();navigate(next,false);if(hash==='explore')history.replaceState(null,'','#notices');}
 window.addEventListener('resize',()=>{fitCategoryRows();document.querySelectorAll('.carousel-track').forEach(track=>track.updateCarousel?.());});
 document.fonts?.ready.then(()=>fitCategoryRows());
 mobileLayout.addEventListener('change',()=>{if(mobileLayout.matches&&query)searchExpanded=true;const state=mobileSnapshot();restoreMobile(state);rememberMobile();});
@@ -653,11 +669,11 @@ function refreshVisibleData(){
 }
 function refreshDateState(){
  const next=todayDate();if(next===displayedDate)return;
- displayedDate=next;refreshVisibleData();
+ displayedDate=next;if(connected)campus.refresh();else refreshVisibleData();
 }
 // Apply completed writes from another tab without replacing an open input form.
 window.addEventListener('storage',event=>{
- if(event.key!==KEY&&event.key!==null)return;
+ if(connected||event.key!==KEY&&event.key!==null)return;
  if(event.storageArea&&event.storageArea!==localStorage)return;
  let next;try{next=JSON.parse(event.newValue||'{}');}catch{return;}
  if(!next||typeof next!=='object'||Array.isArray(next))return;
@@ -695,13 +711,15 @@ subscribeAccountSession(account=>{
  const nextId=account?.id||null;
  if(nextId!==renderedAccountId){
   notificationCenter.disconnect();notificationCenter.setOwner(nextId);pushEnabled=false;
-  renderedAccountId=nextId;accountEpoch++;profileEpoch++;
+  renderedAccountId=nextId;accountEpoch++;profileEpoch++;campus?.reset();
   profile=null;saved.clear();compared.clear();draft=null;pendingProfileDraft=null;profileOrigin=null;discardDestination=null;
   if(modal.open)closeModal();overlayDepth=0;render();renderTray();
   if(!account&&typeof window.dispatchEvent==='function')window.dispatchEvent(new Event('hsu-signout'));
  }else renderNav();
 });
-const notificationCenter=createNotificationCenter({storage:{getItem:k=>localStorage.getItem(k),setItem:(k,v)=>localStorage.setItem(k,v)},context:()=>({items:ITEMS,saved,eligible:i=>!!profile&&matchProfile(i,profile).eligible}),onChange:()=>renderNotificationBadge(),onError:message=>toast(message)});
+const campus=connected?createCampusUI({state:()=>({view,type:listType(),query,category,sort,openOnly,compared,modalView}),
+ render,renderResults,openModal,modalHead,closeFlow:finishMobileFlow,toast,icon}):null;
+const notificationCenter=createNotificationCenter({storage:{getItem:k=>localStorage.getItem(k),setItem:(k,v)=>localStorage.setItem(k,v)},context:()=>({items:connected?[]:ITEMS,saved,eligible:i=>!!profile&&matchProfile(i,profile).eligible}),onChange:()=>renderNotificationBadge(),onError:message=>toast(message)});
 let notificationBusy=false,pushEnabled=false;
 function renderNotificationBadge(){
  const button=$('#notification-button');if(!button)return;

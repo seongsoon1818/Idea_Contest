@@ -163,6 +163,10 @@ main.recommend-home{padding-top:35px}
 /* Center the shared card facts and comparison action on every page. */
 .card .card-facts dt{justify-content:flex-start;text-align:left}
 .card .card-facts dd{justify-content:center;text-align:center;font-size:12px}
+.card .title-button,.card .card-description,.card-fact-preview{-webkit-line-clamp:3}
+.card-fact-preview{display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden;min-width:0;max-width:100%}
+.fact-target .card-fact-preview>span{display:block}
+.card-body[data-action="detail"]{cursor:pointer}
 .card .card-bottom{justify-content:center}
 .recommendation-group .section-head h2{font-size:23px;line-height:1.5}
 @media(max-width:520px){.recommendation-group .section-head h2{font-size:19px}}

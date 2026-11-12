@@ -99,7 +99,7 @@ enum AssetStorageStatus {
   FAILED
 }
 
-/// PENDING=승인 전; APPROVED=검토 승인; REJECTED=이 요약 버전 반려. 공개 포인터 선택은 별도.
+/// PENDING=승인 전, APPROVED=자동 또는 수동 승인, REJECTED=이 요약 버전 반려. 자동 공개는 reviewNote에 기록한다.
 enum ReviewStatus {
   PENDING
   APPROVED

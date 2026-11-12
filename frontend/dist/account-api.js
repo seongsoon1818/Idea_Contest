@@ -2,15 +2,16 @@
 // keeps the refresh token in an HttpOnly cookie.
 const COOKIE_LOCK = 'hsupick:account-cookie';
 const REFRESH_RETRY_DELAYS = [150, 400, 850];
-export function createAccountApi(fetcher = (...args) => fetch(...args), locks = globalThis.navigator?.locks) {
- let accessToken = null, pendingRestore = null;
+export function createAccountApi(fetcher = (...args) => fetch(...args), locks, onSessionLost=()=>{}) {
+ let accessToken = null, userId = null, pendingRestore = null, pendingRefresh = null, generation = 0;
  // The refresh cookie is shared across tabs. Hold the lock until the browser
  // receives Set-Cookie, so the next request uses the new cookie.
  async function withCookieLock(operation) {
-  if (typeof locks?.request !== 'function') return operation(false);
+  const lockManager = locks ?? globalThis.navigator?.locks;
+  if (typeof lockManager?.request !== 'function') return operation(false);
   let started = false;
   try {
-   return await locks.request(COOKIE_LOCK, () => {
+   return await lockManager.request(COOKIE_LOCK, () => {
     started = true;
     return operation(true);
    });
@@ -33,7 +34,7 @@ export function createAccountApi(fetcher = (...args) => fetch(...args), locks = 
    });
    result = await response.json();
   } catch {
-   throw new Error('계정 서버에 연결할 수 없어요. 잠시 후 다시 시도해 주세요.');
+   throw new Error('서버에 연결할 수 없어요. 잠시 후 다시 시도해 주세요.');
   }
   if (!response.ok || result?.success !== true || !result.data) {
    throw Object.assign(new Error(result?.error?.message || '계정 요청을 처리하지 못했어요.'), {
@@ -47,6 +48,8 @@ export function createAccountApi(fetcher = (...args) => fetch(...args), locks = 
    throw new Error('서버의 계정 정보를 확인할 수 없어요.');
   }
   accessToken = data.accessToken;
+  userId = data.user.id;
+  generation++;
   return data.user;
  }
  async function refresh(locked) {
@@ -61,7 +64,45 @@ export function createAccountApi(fetcher = (...args) => fetch(...args), locks = 
    }
   }
  }
+ function clear() {
+  accessToken = null;
+  userId = null;
+  generation++;
+ }
+ function sessionLost(error,epoch) {
+  if(epoch===generation && userId && ['INVALID_REFRESH_TOKEN','SESSION_REVOKED','ACCOUNT_DISABLED','INVALID_TOKEN','ACCOUNT_CHANGED'].includes(error.code)){
+   clear();
+   onSessionLost();
+  }
+ }
+ async function call(path, options = {}) {
+  const token = accessToken, owner = userId, epoch = generation;
+  try {
+   const data = await request(path, {...options, token});
+   if (epoch !== generation) throw new Error('계정이 변경됐습니다. 다시 시도해 주세요.');
+   return data;
+  } catch (error) {
+   if (!owner || epoch !== generation || error.code !== 'ACCESS_TOKEN_EXPIRED') {
+    sessionLost(error,epoch);
+    throw error;
+   }
+   if (token === accessToken) {
+    pendingRefresh ??= withCookieLock(async locked => {
+     const next = await refresh(locked);
+     const user = await request('/users/me', {token:next.accessToken});
+     if (epoch !== generation || user.id !== owner) throw Object.assign(new Error('로그인 계정이 변경됐습니다. 다시 로그인해 주세요.'),{code:'ACCOUNT_CHANGED'});
+     accessToken = next.accessToken;
+    }).finally(() => { pendingRefresh = null; });
+    try { await pendingRefresh; } catch(e) { sessionLost(e,epoch); throw e; }
+   }
+   if (epoch !== generation) throw error;
+   const data = await request(path, {...options, token:accessToken});
+   if (epoch !== generation) throw error;
+   return data;
+  }
+ }
  return {
+  call, clear,
   async authenticate(kind, input) {
    if (kind !== 'login' && kind !== 'signup') throw new TypeError('Unknown account action');
    return withCookieLock(async () => verifySession(await request('/auth/' + kind, {method:'POST', body:input})));
@@ -81,9 +122,13 @@ export function createAccountApi(fetcher = (...args) => fetch(...args), locks = 
    return withCookieLock(async () => {
     const data = await request('/auth/logout', {method:'POST'});
     if (data.loggedOut !== true) throw new Error('로그아웃을 완료하지 못했어요.');
-    accessToken = null;
+    clear();
    });
   },
   getAccessToken: () => accessToken
  };
 }
+
+export const campusApi = createAccountApi(undefined,undefined,()=>window.dispatchEvent(new Event('hsu-session-expired')));
+export const usesCampusApi = () => ['localhost','127.0.0.1','[::1]'].includes(location.hostname)
+ || document.querySelector('meta[name="hsupick-account-api"]')?.getAttribute('content') === 'enabled';

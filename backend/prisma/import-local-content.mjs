@@ -41,13 +41,19 @@ async function importNotice(tx, r, notice, sourceId, categoryId, primaryTopicId,
   }
   const analysis = await tx.noticeAnalysis.create({data: {...r.analysis, revisionId: revision.id}, select: {id: true}});
   const previous = await tx.noticeSummary.aggregate({where: {noticeId}, _max: {versionNo: true}});
-  await tx.noticeSummary.create({data: {...r.summary, noticeId, revisionId: revision.id, analysisId: analysis.id,
+  const fresh = +new Date(r.identity.lastSeenAt) >= +notice.lastSeenAt;
+  const publish = fresh && r.summary.validationStatus === "VALID";
+  const approval = publish ? {
+    reviewStatus: "APPROVED", reviewedAt: new Date(), reviewNote: "AUTO_PUBLISHED_ON_VALIDATION",
+  } : {};
+  const summary = await tx.noticeSummary.create({select: {id: true}, data: {...r.summary, ...approval,
+    noticeId, revisionId: revision.id, analysisId: analysis.id,
     categoryId, primaryTopicId, versionNo: nextNumber(previous, "versionNo"),
     periods: {create: r.periods}, items: {create: r.items}}});
-  const fresh = +new Date(r.identity.lastSeenAt) >= +notice.lastSeenAt;
-  // Keep the existing public version while a new summary awaits review.
+  // Advance both pointers together. A pending replacement leaves the previous public pair intact.
   if (fresh) await tx.notice.update({where: {id: noticeId}, data: {
-    currentRevisionId: notice.publishedSummaryId ? notice.currentRevisionId : revision.id,
+    currentRevisionId: publish || !notice.publishedSummaryId ? revision.id : notice.currentRevisionId,
+    ...(publish ? {publishedSummaryId: summary.id} : {}),
     canonicalUrl: r.identity.canonicalUrl, lastSeenAt: r.identity.lastSeenAt, lastCheckedAt: r.identity.lastCheckedAt}});
   return action;
 }
