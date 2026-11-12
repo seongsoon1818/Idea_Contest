@@ -1288,4 +1288,118 @@ for(const mobile of [true,false]){
  check(()=>assert($('#modal').open&&$('#modal-title').textContent===ITEMS.find(i=>i.id==='n01').title));
  click('[data-action="close"]');
 }
+// Enable the API on a simulated loopback origin; exercise form wiring and cookie restoration.
+const realFetch=globalThis.fetch;
+const calls=[];
+let rejectSignup=true;
+const serverUser={id:'101',name:'연동 테스트'};
+globalThis.fetch=async(url,options)=>{
+ calls.push({url,...options});
+ if(url.endsWith('/signup')&&rejectSignup)return new Response(JSON.stringify({
+  success:false,error:{code:'LOGIN_ID_TAKEN',message:'이미 사용 중인 아이디입니다.'}
+ }),{status:409});
+ const data=url.endsWith('/logout')?{loggedOut:true}:url.endsWith('/users/me')?serverUser:
+  url.endsWith('/refresh')?{accessToken:'restored'}:{accessToken:'confirmed',user:serverUser};
+ return new Response(JSON.stringify({success:true,data}));
+};
+const settle=()=>new Promise(resolve=>setImmediate(resolve));
+try{
+ storage.clear();setup();location.hostname='127.0.0.1';window.dispatchEvent=event=>window.dispatch(event.type);
+ await import('../dist/login.js?account-api-restore');
+ await settle();
+ check(()=>assert.equal(calls[0].url,'/api/v1/auth/refresh'));
+ check(()=>assert.equal(calls[0].headers['X-CSRF-Guard'],'1'));
+ check(()=>assert.equal(calls[0].credentials,'same-origin'));
+ check(()=>assert.equal(calls[1].headers.Authorization,'Bearer restored'));
+ check(()=>assert.equal(account.getAccountUser()?.id,serverUser.id));
+ check(()=>assert($('#login-screen').hidden));
+ await account.logoutAccount();
+ check(()=>assert.equal(calls.at(-1).url,'/api/v1/auth/logout'));
+ check(()=>assert.equal(account.getAccountUser(),null));
+ history.replaceState(null,'','#login');window.dispatch('hsu-signout');
+ click('[data-login-action="signup"]');
+ const fillSignup=()=>{
+  $('#signup-name').value=serverUser.name;$('#signup-id').value='teststudent';
+  $('#signup-password').value='Password1!';$('#signup-confirm').value='Password1!';
+ };
+ fillSignup();submit('#signup-form');await settle();
+ check(()=>assert($('#signup-id-error').textContent.includes('이미 사용')));
+ check(()=>assert.equal(account.getAccountUser(),null));
+ rejectSignup=false;submit('#signup-form');submit('#signup-form');await settle();
+ check(()=>assert.equal(calls.filter(x=>x.url.endsWith('/signup')).length,2,'Duplicate submit must not send another request'));
+ check(()=>assert.deepEqual(JSON.parse(calls.at(-1).body),{loginId:'teststudent',password:'Password1!',name:serverUser.name}));
+ check(()=>assert($('#login-screen').hidden));
+ await account.logoutAccount();window.dispatch('hsu-signout');
+ $('#login-id').value='teststudent';$('#login-password').value='Password1!';submit('#login-form');await settle();
+ check(()=>assert.equal(calls.at(-1).url,'/api/v1/auth/login'));
+ check(()=>assert.equal(account.getAccountUser()?.name,serverUser.name));
+ check(()=>assert(!JSON.stringify([...storage]).includes('Password1!')));
+ await account.logoutAccount();
+}finally{globalThis.fetch=realFetch;}
+// Restore errors must distinguish a lost connection from a rejected session.
+const originalNavigator=Object.getOwnPropertyDescriptor(globalThis,'navigator');
+let online=false;
+Object.defineProperty(globalThis,'navigator',{configurable:true,value:{
+ get onLine(){return online;},locks:{request:(_name,run)=>run()}
+}});
+const retry='[data-login-action="retry-session"]';
+const connectionStatus=()=>$('#session-connection-status').textContent;
+const recoveryVisible=()=>!$('#login-screen').hidden&&!$('#session-connection').hidden&&
+ $('#login-panel').hidden&&$('#signup-panel').hidden&&$('.login-help').hidden&&$('.login-back').hidden;
+const apiResult=(data)=>new Response(JSON.stringify({success:true,data}));
+function prepareRestore(mobile,hash){
+ storage.clear();setup(mobile);location.hostname='127.0.0.1';window.dispatchEvent=event=>window.dispatch(event.type);
+ history.replaceState(null,'',hash);
+}
+try{
+ let apiCalls=0;
+ globalThis.fetch=async url=>{apiCalls++;return apiResult(url.endsWith('/refresh')?{accessToken:'restored'}:serverUser);};
+ prepareRestore(true,'#saved');
+ await import('../dist/login.js?account-offline-retry');
+ check(()=>assert(recoveryVisible()&&!$(retry).hidden&&/인터넷/.test(connectionStatus())));
+ check(()=>assert.equal(location.hash,'#saved'));
+ click(retry);await settle();check(()=>assert.equal(apiCalls,0,'Offline retry should wait for network'));
+ online=true;window.dispatch('online');
+ check(()=>assert.match(connectionStatus(),/다시 연결됐어요/));
+ click(retry);await settle();
+ check(()=>assert.equal(apiCalls,2));
+ check(()=>assert($('#login-screen').hidden&&$('#session-connection').hidden&&location.hash==='#saved'));
+ check(()=>assert.equal(account.getAccountUser()?.id,serverUser.id));
+ account.setAccountSession(null);
+
+ // A proxy outage can be non-JSON; a timeout can also happen after cookie rotation.
+ let stage='outage',finishProfile;
+ globalThis.fetch=async url=>{
+  apiCalls++;
+  if(stage==='outage')return new Response('Unavailable',{status:503});
+  if(url.endsWith('/refresh'))return apiResult({accessToken:'restored'});
+  if(stage==='timeout')throw new DOMException('Timed out','TimeoutError');
+  return new Promise(resolve=>{finishProfile=()=>resolve(apiResult(serverUser));});
+ };
+ prepareRestore(false,'#programs');
+ await import('../dist/login.js?account-server-retry');await settle();
+ check(()=>assert(recoveryVisible()&&!$(retry).hidden&&/서버/.test(connectionStatus())));
+ stage='timeout';click(retry);await settle();
+ check(()=>assert(recoveryVisible()&&!$(retry).hidden&&location.hash==='#programs'));
+ stage='healthy';const beforeRetry=apiCalls;click(retry);click(retry);await settle();
+ check(()=>assert(recoveryVisible()&&$(retry).hidden&&/확인하고 있어요/.test(connectionStatus())));
+ check(()=>assert.equal(apiCalls-beforeRetry,2,'Retrying cannot start a second in-flight restore'));
+ finishProfile();await settle();
+ check(()=>assert($('#login-screen').hidden&&location.hash==='#programs'));
+ account.setAccountSession(null);
+
+ let expiry=false;
+ globalThis.fetch=async()=>expiry?new Response(JSON.stringify({success:false,error:{code:'INVALID_REFRESH_TOKEN'}}),{status:401}):
+  new Response(JSON.stringify({success:false,error:{code:'UPSTREAM_AUTH_REQUIRED'}}),{status:401});
+ prepareRestore(true,'#saved');
+ await import('../dist/login.js?account-expired-after-retry');await settle();
+ check(()=>assert(recoveryVisible()&&location.hash==='#saved','Unexpected 401 is not proof of expiry'));
+ expiry=true;click(retry);await settle();
+ check(()=>assert(!$('#login-panel').hidden&&$('#session-connection').hidden&&location.hash==='#login'));
+ check(()=>assert.equal(account.getAccountUser(),null));
+}finally{
+ globalThis.fetch=realFetch;
+ if(originalNavigator)Object.defineProperty(globalThis,'navigator',originalNavigator);
+ else delete globalThis.navigator;
+}
 console.log(`PASS: ${count} DOM flow assertions; first-use guide, recommendations, search/filter/sort, compare limits, original links, save/reload, edit, missing data, reset, and storage recovery.`);
