@@ -1,0 +1,10 @@
+hsupick.cloud {
+	encode zstd gzip
+	handle /api/* {
+		reverse_proxy api:3000
+	}
+	handle {
+		root * /srv
+		file_server
+	}
+}

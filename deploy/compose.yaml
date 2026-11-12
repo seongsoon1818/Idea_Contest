@@ -1,0 +1,60 @@
+name: hsupick
+services:
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    command: ["--innodb-buffer-pool-size=256M", "--max-connections=60", "--binlog-expire-logs-seconds=259200"]
+    environment:
+      MYSQL_DATABASE: idea_contest
+      MYSQL_USER: hsupick
+      MYSQL_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?set DB_ROOT_PASSWORD}
+    volumes:
+      - mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "MYSQL_PWD=$$MYSQL_PASSWORD mysql --user=$$MYSQL_USER --database=$$MYSQL_DATABASE --execute='SELECT 1' >/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+  api:
+    build:
+      context: ../backend
+      dockerfile: ../deploy/backend.Dockerfile
+    restart: unless-stopped
+    init: true
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: "3000"
+      DATABASE_URL: mysql://hsupick:${DB_PASSWORD}@db:3306/idea_contest
+      ALLOWED_ORIGINS: https://hsupick.cloud
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/v1/catalog/notice-categories').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 60s
+      timeout: 8s
+      retries: 3
+      start_period: 20s
+  web:
+    build:
+      context: ../frontend/dist
+      dockerfile: ../../deploy/web.Dockerfile
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - certificates:/data
+      - caddy_config:/config
+volumes:
+  mysql:
+  certificates:
+  caddy_config:
