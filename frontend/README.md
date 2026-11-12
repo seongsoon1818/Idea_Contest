@@ -2,6 +2,16 @@
 
 현재 배포 화면의 **HTML/CSS/JavaScript ES modules 원본**입니다. React/TSX가 아닙니다. 버전 **1.17.0**이며 화면 소스·이미지·자체 호스팅 폰트·회귀 검사 코드를 포함합니다.
 
+## 2026-11-13 계정 연동·세션 복원 보완
+
+**이번 변경부터 확인하려면 [계정 프론트 인계](docs/account-api-delivery.md), [정정 인계서](docs/backend-handoff-2026-11-13.md), [로컬 실행 안내](docs/local-auth-integration.md)를 먼저 읽어 주세요.**
+
+실행 코드·테스트 기준은 팀 GitHub 커밋 `b9c511d8f045751b0b0286dc4028a7c099a79772`이며, 이후 문서 정리는 실행 코드를 바꾸지 않습니다. PR 브랜치 `frontend/fix/account-session-handoff-20261113`에서 받습니다. 이전 `HSU-PICK-auth.zip`은 세션 보완 전 버전이므로 추가 적용하지 않습니다.
+
+- 회원가입·일반 로그인·쿠키 기반 복원·로그아웃 API를 연결했습니다. 운영에서는 API 라우팅 확인 후 활성화해야 합니다.
+- 두 탭의 갱신 충돌을 처리하고, 연결 장애 때 현재 화면에서 다시 연결하기를 제공합니다.
+- 공지·비교과·추천·MY PICK·비교·알림 화면의 실제 API 연동과 소셜 로그인은 별도 작업입니다.
+
 ## 2026-10-28 알림 기능 추가
 
 **이번에 추가한 내용부터 보려면 [알림 변경 내역](docs/notification-changes-2026-10-28.md)을 확인하세요.**
@@ -30,7 +40,7 @@ cd frontend
 npm run check
 ```
 
-957개 인메모리 DOM 흐름 및 데이터·세션·입력 규칙·이미지·추천 검사를 통과했습니다. 실제 브라우저 렌더링/터치/키보드/네트워크/API 검사를 대신하지 않습니다.
+2026-11-13 재검사에서 인메모리 DOM 동작 단언 988개와 데이터·세션·입력 규칙·이미지·추천·알림 검사를 통과했습니다. 실제 브라우저 렌더링/터치/키보드/네트워크/API 검사를 대신하지 않습니다.
 
 ## 처음 읽는 순서
 
@@ -53,15 +63,15 @@ npm run check
 
 ## 백엔드 연결 전 확인
 
-현재 로그인·소셜·서버 저장·학교 데이터·AI API는 연결되지 않았습니다. 프로필과 MY PICK은 브라우저 저장입니다. `setAccountSession`만 호출하거나 API URL만 바꿔서는 연동이 완료되지 않습니다.
+일반 계정 API 연동 코드가 포함되며 로컬에서는 활성화됩니다. 공개 데모는 운영 API 연결 전까지 계정 API를 비활성화합니다. 소셜·서버 프로필 저장·학교 데이터 조회·AI API는 아직 연결되지 않았습니다. 프로필과 MY PICK은 브라우저 저장입니다. `setAccountSession`만 호출하거나 API URL만 바꿔서는 연동이 완료되지 않습니다.
 
-**[백엔드 연동 전달서](docs/backend-handoff-2026-10-16.md)**부터 확인해 주세요. 사용자 입력 규칙·분류 ID·미확인 정보·기간 없는 공지·본문/이미지·계정 데이터 주입·페이지네이션·통합 검사 순서가 있습니다. 기존 문서보다 이 전달서가 최신 기준입니다.
+**계정 연동은 [계정 프론트 인계](docs/account-api-delivery.md)를 먼저 확인하고, 나머지 데이터 연결은 [백엔드 연동 전달서](docs/backend-handoff-2026-10-16.md)를 참고해 주세요.** 사용자 입력 규칙·분류 ID·미확인 정보·기간 없는 공지·본문/이미지·계정 데이터 주입·페이지네이션·통합 검사 순서가 있습니다. 계정 기능은 2026-11-13 인계 문서를 우선합니다.
 
 - [인증 및 계정 저장 연결](docs/auth-integration.md)
 - [비교과 공개 정보](docs/program-public-content.md)
 - [PC/모바일 일관성 점검](docs/request-consistency-review-2026-10-16.md)
 
-현재 데모: https://hsupick-campus-idea-contest.luckycrown8.chatgpt.site/
+현재 데모: https://hsupick-campus-idea-contest.ijiwon587.chatgpt.site/
 
 이 GitHub 저장소의 변경이 기존 ChatGPT Sites 배포에 자동 반영되는 CI는 설정하지 않았습니다. 로컬 개발·일반 정적 호스팅에 필요한 파일만 전달했으며 Sites 전용 프로젝트 설정은 포함하지 않았습니다.
 

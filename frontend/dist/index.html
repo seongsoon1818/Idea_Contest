@@ -20,7 +20,7 @@
 <meta name="twitter:description" content="학년·트랙·관심 분야에 맞는 공지사항과 비교과프로그램을 한곳에서 확인하세요.">
 <meta name="twitter:image" content="https://hsupick-campus-idea-contest.luckycrown8.chatgpt.site/assets/share-card-v1.png">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%232458e8'/%3E%3Ctext x='32' y='47' font-family='Arial' font-weight='bold' font-size='48' fill='white' text-anchor='middle'%3E!%3C/text%3E%3C/svg%3E">
-<link rel="stylesheet" href="styles.css?v=1.17.0">
+<link rel="stylesheet" href="styles.css?v=1.17.0-auth3">
 </head>
 <body class="login-view">
 <section hidden id="login-screen" class="login-screen" aria-labelledby="login-title">
@@ -28,6 +28,11 @@
  <header class="login-header"><button type="button" class="login-back" data-login-action="back" aria-label="로그인 없이 둘러보기"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M20 12H4m7-7-7 7 7 7"/></svg></button><h1 id="login-title" tabindex="-1">LOGIN</h1></header>
  <div class="login-content">
   <img class="login-logo" src="assets/hsu-pick-logo.png" width="108" height="59" alt="HSU PICK">
+  <div id="session-connection" class="session-connection" hidden>
+   <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9a14 14 0 0 1 18 0M6 12a9 9 0 0 1 12 0m-9 3a4.5 4.5 0 0 1 6 0m-3 3h.01"/></svg>
+   <p id="session-connection-status" role="status" aria-atomic="true"></p>
+   <button type="button" class="login-submit" data-login-action="retry-session" hidden>다시 연결하기</button>
+  </div>
   <div id="login-panel">
   <form id="login-form" class="login-form" novalidate>
    <label class="login-field"><span class="visually-hidden">아이디</span><input id="login-id" name="username" type="text" placeholder="아이디" autocomplete="username" autocapitalize="none" spellcheck="false" required maxlength="100" aria-describedby="login-feedback"></label>
@@ -71,6 +76,6 @@
 <div id="connection-status" role="status" aria-live="polite" hidden></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <script type="module" src="app.js?v=1.17.0"></script>
-<script type="module" src="login.js?v=1.17.0"></script>
+<script type="module" src="login.js?v=1.17.0-auth3"></script>
 </body>
 </html>
