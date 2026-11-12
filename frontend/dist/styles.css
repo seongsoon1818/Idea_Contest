@@ -674,7 +674,12 @@ body:has(#main.recommend-home) #compare-tray .primary:hover{background:#ad3541}
 /* Desktop sign-in uses the available browser width; mobile keeps one column. */
 .login-intro{display:none}
 /* Registration follows the same typography and field sizing as sign-in. */
-#login-panel[hidden],#signup-panel[hidden],.login-help[hidden]{display:none}
+#login-panel[hidden],#signup-panel[hidden],.login-help[hidden],.login-back[hidden],.session-connection[hidden],.session-connection button[hidden]{display:none}
+.session-connection{display:grid;justify-items:center;gap:16px;max-width:340px;margin:0 auto;padding:24px 18px;background:var(--bg);border:1px solid var(--line);border-radius:var(--radius)}
+.session-connection>.icon{width:30px;height:30px;color:var(--blue)}
+.session-connection p{font-size:14px;color:#59677e;line-height:1.6}
+.session-connection .login-submit{width:100%;margin:0}
+.login-view:has(#session-connection:not([hidden]))>#connection-status{display:none}
 #signup-panel>.login-signup{margin-top:12px}
 @media(max-width:800px){
  .login-content:has(#signup-panel:not([hidden])){padding-top:16px}
