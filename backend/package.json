@@ -9,6 +9,7 @@
     "test": "pnpm run build && node --test test/unit.test.mjs",
     "test:e2e": "pnpm run build && node --test test/mysql.e2e.test.mjs",
     "catalog:seed": "node prisma/seed.mjs",
+    "content:import": "node prisma/import-local-content.mjs",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
