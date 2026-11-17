@@ -16,6 +16,8 @@ export function parseKey(key) {
 export const NAME_PATTERN = /^\p{L}[\p{L}\p{M}]*(?:[ '’·-]\p{L}[\p{L}\p{M}]*)*$/u;
 const GRADE_NUMBER = {YEAR_1: 1, YEAR_2: 2, YEAR_3: 3, YEAR_4: 4};
 const text = value => typeof value === 'string' && value.trim() ? value.trim() : '';
+// Links shown to users must be plain https URLs (no javascript:, data:, etc.).
+const safeUrl = value => /^https:\/\/[^\s"'<>]+$/i.test(value || '') ? value : '';
 // A boundary is {rawText, precision, value}; the calendar day follows Seoul time.
 function day(boundary) {
  const value = boundary?.value;
@@ -97,8 +99,8 @@ export function toDetailItem(data, previous) {
   preparations: preparations.map(p => [text(p.text), text(p.condition)].filter(Boolean).join(' · ')).filter(Boolean),
   guideLines: [...(application?.methods || []), ...(summary?.operationGuide || data.operationGuide || [])].map(text).filter(Boolean),
   department: text(info?.department) || item.department,
-  images: Array.isArray(data.images) ? data.images.filter(asset => asset.url && asset.availability !== 'UNAVAILABLE').map(asset => ({url: asset.url, alt: text(asset.alt) && asset.alt !== 'external_image' ? asset.alt : ''})) : item.images,
-  attachments: Array.isArray(data.attachments) ? data.attachments.filter(asset => asset.url).map(asset => ({url: asset.url, name: text(asset.filename) || '첨부파일'})) : item.attachments,
+  images: Array.isArray(data.images) ? data.images.filter(asset => safeUrl(asset.url) && asset.availability !== 'UNAVAILABLE').map(asset => ({url: asset.url, alt: text(asset.alt) && asset.alt !== 'external_image' ? asset.alt : ''})) : item.images,
+  attachments: Array.isArray(data.attachments) ? data.attachments.filter(asset => safeUrl(asset.url)).map(asset => ({url: asset.url, name: text(asset.filename) || '첨부파일'})) : item.attachments,
   warnings: (data.warnings || []).map(w => text(w.message)).filter(Boolean)
  });
  if (item.type === 'program') {
