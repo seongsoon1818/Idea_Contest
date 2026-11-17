@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#2458e8">
+<title>HSU PICK · 모바일 미리보기</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f7f8fc;color:#18233b;font:14px/1.5 Pretendard,'Noto Sans KR',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+button,select{font:inherit;color:inherit}
+button,select,a{touch-action:manipulation}
+button:focus-visible,select:focus-visible,a:focus-visible{outline:3px solid #79a1ff;outline-offset:3px}
+.preview-page{max-width:920px;margin:auto;padding:24px 20px 32px}
+.preview-header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:20px}
+.preview-header img{display:block;width:72px;height:auto}
+.preview-header h1{margin:0;font-size:20px;color:#2458e8;letter-spacing:-.5px}
+.open-site{color:#2458e8;text-decoration:none;min-height:44px;display:inline-flex;align-items:center;white-space:nowrap;font-weight:600}
+.preview-controls{display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:16px}
+.width-options{display:flex;gap:6px}
+.width-options button{border:1px solid #e1e6ef;background:white;border-radius:9px;min-height:44px;padding:9px 13px;cursor:pointer;color:#64738b}
+.width-options button[aria-pressed="true"]{background:#edf2ff;border-color:#c6d6ff;color:#2458e8;font-weight:700}
+.screen-picker{display:flex;align-items:center;gap:8px;color:#64738b}
+.screen-picker select{min-height:44px;padding:8px 30px 8px 12px;border:1px solid #e1e6ef;border-radius:9px;background:white;max-width:100%;font-size:16px}
+.viewport-label{margin:0 0 12px;text-align:center;color:#707b90;font-size:12px;font-variant-numeric:tabular-nums}
+.device-stage{position:relative;width:100%;height:860px;overflow:visible}
+.device-shell{position:absolute;left:50%;top:0;transform:translateX(-50%);transform-origin:top center;width:406px;height:860px;background:#263043;border:1px solid #263043;border-radius:30px;padding:7px;box-shadow:0 18px 45px #18233b15}
+.device-shell iframe{display:block;width:390px;height:844px;border:0;border-radius:22px;background:white;color-scheme:light}
+.preview-note{text-align:center;color:#707b90;font-size:12px;margin:18px 0 0}
+@media(max-width:520px){.preview-page{padding:16px 12px 24px}.preview-header{flex-wrap:wrap;gap:8px;margin-bottom:12px}.preview-header h1{font-size:18px}.preview-header img{width:60px}.open-site{font-size:12px}.preview-controls{gap:8px}.screen-picker{width:100%;justify-content:center}.device-shell{box-shadow:0 9px 24px #18233b12}}
+</style>
+</head>
+<body>
+<main class="preview-page">
+ <header class="preview-header">
+  <img src="assets/hsu-pick-logo.png" width="72" height="39" alt="HSU PICK">
+  <h1>모바일 미리보기</h1>
+  <a class="open-site" href="./index.html#recommend" target="_blank" rel="noopener noreferrer">사이트 직접 열기 ↗</a>
+ </header>
+ <div class="preview-controls">
+  <div class="width-options" role="group" aria-label="모바일 화면 너비">
+   <button type="button" data-width="360" aria-pressed="false">360px</button>
+   <button type="button" data-width="390" aria-pressed="true">390px</button>
+   <button type="button" data-width="430" aria-pressed="false">430px</button>
+  </div>
+  <label class="screen-picker">화면
+   <select id="screen-picker">
+    <option value="recommend">맞춤 추천</option>
+    <option value="notices">공지사항</option>
+    <option value="programs">비교과프로그램</option>
+    <option value="saved">MY PICK</option>
+    <option value="profile">MY PAGE</option>
+   </select>
+  </label>
+ </div>
+ <p id="viewport-label" class="viewport-label" aria-live="polite">390 × 844</p>
+ <div id="device-stage" class="device-stage">
+  <div id="device-shell" class="device-shell">
+   <iframe id="mobile-app" src="./index.html#recommend" title="HSU PICK 현재 사이트의 모바일 화면" width="390" height="844"></iframe>
+  </div>
+ </div>
+ <p class="preview-note">화면 안에서 스크롤하거나 하단 메뉴를 눌러보세요.</p>
+</main>
+<script>
+const stage=document.getElementById('device-stage');
+const shell=document.getElementById('device-shell');
+const frame=document.getElementById('mobile-app');
+const picker=document.getElementById('screen-picker');
+const viewportLabel=document.getElementById('viewport-label');
+const widthButtons=Array.from(document.querySelectorAll('[data-width]'));
+let viewportWidth=390;
+const viewportHeight=844;
+function fitDevice(){
+ const shellWidth=viewportWidth+16;
+ const shellHeight=viewportHeight+16;
+ const scale=Math.min(1,stage.clientWidth/shellWidth);
+ shell.style.width=shellWidth+'px';
+ shell.style.height=shellHeight+'px';
+ shell.style.transform='translateX(-50%) scale('+scale+')';
+ frame.style.width=viewportWidth+'px';
+ frame.style.height=viewportHeight+'px';
+ stage.style.height=Math.ceil(shellHeight*scale)+'px';
+ viewportLabel.textContent=viewportWidth+' × '+viewportHeight;
+}
+widthButtons.forEach(button=>button.addEventListener('click',()=>{
+ viewportWidth=Number(button.dataset.width);
+ widthButtons.forEach(other=>other.setAttribute('aria-pressed',String(other===button)));
+ fitDevice();
+}));
+picker.addEventListener('change',()=>{frame.src='./index.html#'+picker.value;});
+frame.addEventListener('load',()=>{
+ const syncScreen=()=>{
+  const screen=frame.contentWindow.location.hash.slice(1);
+  if(Array.from(picker.options).some(option=>option.value===screen))picker.value=screen;
+ };
+ syncScreen();
+ frame.contentWindow.addEventListener('hashchange',syncScreen);
+});
+new ResizeObserver(fitDevice).observe(stage);
+fitDevice();
+</script>
+</body>
+</html>

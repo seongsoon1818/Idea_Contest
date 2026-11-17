@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import {usernameError,passwordError,confirmationError} from '../dist/auth-rules.js';
+for(const value of ['pick','1234','A'.repeat(20)])assert.equal(usernameError(value),'');
+for(const value of ['', 'abc', 'a'.repeat(21), '한성pick', 'pick!', 'pick name', 'pick\n', 'ｐｉｃｋ'])assert(usernameError(value),JSON.stringify(value));
+for(const value of ['Pick123!', 'A1!'+'a'.repeat(29), 'abcd123~', 'abcd123[', 'abcd123\\'])assert.equal(passwordError(value),'',value);
+for(const value of ['', 'Ab1234!', 'A1!'+'a'.repeat(30), 'password1', 'password!', '1234567!', '한글abc12!', 'Ab12345! ', 'Ab12345!\n', 'Ab12345!😀'])assert(passwordError(value),JSON.stringify(value));
+assert.equal(confirmationError('Pick123!','Pick123!'),'');
+assert(confirmationError('Pick123!','pick123!'));
+assert(confirmationError('Pick123!',''));
+console.log('Authentication input rules: boundaries, character sets and confirmation passed');
