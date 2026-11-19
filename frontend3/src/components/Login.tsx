@@ -16,6 +16,8 @@ export function LoginScreen() {
   const s = useUI();
   const signup = s.auth === 'signup', connection = s.auth === 'pending' || s.auth === 'retry';
   const titleRef = useRef<HTMLHeadingElement>(null);
+  const prevAuth = useRef(s.auth);
+  const retried = useRef(false);
   const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
   const [passwordVisible, setPasswordVisible] = useState(false);
@@ -33,7 +35,13 @@ export function LoginScreen() {
   useEffect(() => {
     setPassword(''); setPasswordVisible(false); setInvalid({}); setFeedback(s.authMessage);
     setForm({ name: '', id: '', password: '', confirm: '' }); setShown({ password: false, confirm: false }); setNameError(''); setTouched(false); setIdTaken(''); setSignupFeedback('');
-    if (s.auth !== 'hidden' && s.auth !== 'welcome') titleRef.current?.focus();
+    // Like frontend2: a session check on page load shows the gate without moving focus;
+    // explicit opens, failed retries and error messages still focus the title.
+    const prev = prevAuth.current; prevAuth.current = s.auth;
+    if (prev === 'retry' && s.auth === 'pending') retried.current = true;
+    const fromRestore = prev === 'pending' && s.auth === 'login' && !s.authMessage && !retried.current;
+    if (s.auth !== 'pending') retried.current = false;
+    if (s.auth !== 'hidden' && s.auth !== 'welcome' && s.auth !== 'pending' && !fromRestore) titleRef.current?.focus();
   }, [s.auth, s.authMessage]);
 
   const errors = [idTaken || usernameError(form.id), passwordError(form.password), confirmationError(form.password, form.confirm)];

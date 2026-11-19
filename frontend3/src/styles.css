@@ -629,8 +629,8 @@ body:has(#main.recommend-home) #compare-tray .primary:hover{background:#ad3541}
 .login-screen{display:flex;flex-direction:column;min-height:100dvh;width:100%;max-width:480px;margin:0 auto;background:#fff;font-family:var(--ui-font);letter-spacing:var(--ui-tracking);color:var(--ink)}
 .login-screen[hidden]{display:none}
 .login-view{background:#fff}
-.login-view>.sidebar,.login-view>.workspace,.login-view>.mobile-nav,.login-view>#compare-tray{display:none!important}
-.login-view>.skip-link{display:none}
+.login-view #root>.sidebar,.login-view #root>.workspace,.login-view #root>.mobile-nav,.login-view #root>#compare-tray{display:none!important}
+.login-view #root>.skip-link{display:none}
 .login-header{position:relative;display:flex;align-items:center;justify-content:center;min-height:76px;padding:16px 24px}
 .login-header h1{font-size:22px;font-weight:700;line-height:1.4;letter-spacing:var(--ui-tracking)}
 .login-back{position:absolute;left:16px;top:16px;display:flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:50%}
@@ -683,7 +683,7 @@ body:has(#main.recommend-home) #compare-tray .primary:hover{background:#ad3541}
 .session-connection>.icon{width:30px;height:30px;color:var(--blue)}
 .session-connection p{font-size:14px;color:#59677e;line-height:1.6}
 .session-connection .login-submit{width:100%;margin:0}
-.login-view:has(#session-connection:not([hidden]))>#connection-status{display:none}
+.login-view:has(#session-connection:not([hidden])) #root>#connection-status{display:none}
 #signup-panel>.login-signup{margin-top:12px}
 @media(max-width:800px){
  .login-content:has(#signup-panel:not([hidden])){padding-top:16px}
