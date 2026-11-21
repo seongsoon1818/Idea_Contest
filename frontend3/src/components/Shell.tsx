@@ -1,5 +1,6 @@
 import { useEffect, useRef, type MouseEvent } from 'react';
 import { Icon } from '../lib/icons';
+import { CAMPUS_TOWN_URL } from '../lib/campusTown';
 import { getAccountUser } from '../lib/session';
 import type { Profile } from '../lib/live';
 import { useUI, setUI, getUI, type View } from '../app/store';
@@ -34,12 +35,25 @@ function NavLinks() {
   ))}</>;
 }
 
+function CampusTownCard() {
+  return (
+    <div className="sidebar-note campus-town-note">
+      <span className="note-icon" aria-hidden="true">✦</span>
+      <span className="campus-town-eyebrow">CAMPUS TOWN</span>
+      <p>나만의 캠퍼스타운 만들기</p>
+      {CAMPUS_TOWN_URL
+        ? <a className="campus-town-btn" href={CAMPUS_TOWN_URL} target="_blank" rel="noopener noreferrer" aria-label="캠퍼스타운 체험하기 (새 탭에서 열림)">체험하기 <span aria-hidden="true">↗</span></a>
+        : <button type="button" className="campus-town-btn" disabled>오픈 예정</button>}
+    </div>
+  );
+}
+
 export function Sidebar() {
   return (
     <aside className="sidebar">
       <a href="#recommend" className="brand" aria-label="HSU PICK 추천 홈" onClick={go('recommend')}><img className="brand-logo" src="assets/hsu-pick-logo.png" width={86} height={47} alt="HSU PICK" /></a>
       <nav className="desktop-nav" aria-label="주 메뉴"><NavLinks /></nav>
-      <div className="sidebar-note"><span className="note-icon">✦</span><b>학교 소식, 나에게 맞게.</b><p>흩어져 있던 기회를<br />하나의 PICK으로 모아보세요.</p></div>
+      <CampusTownCard />
       <div className="sidebar-bottom">HSU PICK</div>
     </aside>
   );

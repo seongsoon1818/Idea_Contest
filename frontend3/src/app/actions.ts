@@ -355,6 +355,9 @@ export function browse({ authenticated = false } = {}) {
   live.invalidate();
   window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
   if (!hasSeenOnboarding()) showOnboarding();
+  // Like frontend2: entering the app moves focus to the page content (after the gate's inert is cleared),
+  // unless a dialog such as the first-use guide has just taken focus.
+  requestAnimationFrame(() => { if (!document.querySelector('#modal[open]')) document.querySelector<HTMLElement>('#main')?.focus({ preventScroll: true }); });
 }
 function enterAccount(user: ApiUser) {
   setAccountSession({ user, logout: () => campusApi.logout() });
@@ -393,12 +396,21 @@ export async function restoreAccount() {
   setUI({ authBusy: false });
   enterAccount(user);
 }
+/** Like frontend2: when the address bar or back/forward shows the login gate, focus is not moved to its title. */
+export const authFocus = { skipNext: false };
+function showLoginFromNavigation() {
+  const before = getUI();
+  authFocus.skipNext = true;
+  showLogin();
+  const after = getUI();
+  if (after.auth === before.auth && after.authMessage === before.authMessage) authFocus.skipNext = false;
+}
 function handleAuthNavigation() {
   const auth = getUI().auth;
   if (auth === 'pending' || auth === 'retry') return;
-  if (auth === 'welcome') { showLogin(); return; }
+  if (auth === 'welcome') { showLoginFromNavigation(); return; }
   if (getAccountUser()) { if (isAuthHash(location.hash) || auth !== 'hidden') browse({ authenticated: true }); }
-  else if (isAuthHash(location.hash) || !browsing) { if (auth === 'hidden' || (location.hash === '#signup') !== (auth === 'signup')) showLogin(); }
+  else if (isAuthHash(location.hash) || !browsing) { if (auth === 'hidden' || (location.hash === '#signup') !== (auth === 'signup')) showLoginFromNavigation(); }
   else if (auth !== 'hidden') browse();
 }
 
