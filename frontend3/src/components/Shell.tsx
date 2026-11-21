@@ -1,6 +1,6 @@
-import { useEffect, useRef, type MouseEvent } from 'react';
+import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import { Icon } from '../lib/icons';
-import { CAMPUS_TOWN_URL } from '../lib/campusTown';
+import { readCampusTownUrl } from '../lib/campusTown';
 import { getAccountUser } from '../lib/session';
 import type { Profile } from '../lib/live';
 import { useUI, setUI, getUI, type View } from '../app/store';
@@ -36,13 +36,19 @@ function NavLinks() {
 }
 
 function CampusTownCard() {
+  const [url, setUrl] = useState('');
+  useEffect(() => {
+    let alive = true;
+    void readCampusTownUrl().then((value) => { if (alive) setUrl(value); });
+    return () => { alive = false; };
+  }, []);
   return (
     <div className="sidebar-note campus-town-note">
       <span className="note-icon" aria-hidden="true">✦</span>
       <span className="campus-town-eyebrow">CAMPUS TOWN</span>
       <p>나만의 캠퍼스타운 만들기</p>
-      {CAMPUS_TOWN_URL
-        ? <a className="campus-town-btn" href={CAMPUS_TOWN_URL} target="_blank" rel="noopener noreferrer" aria-label="캠퍼스타운 체험하기 (새 탭에서 열림)">체험하기 <span aria-hidden="true">↗</span></a>
+      {url
+        ? <a className="campus-town-btn" href={url} target="_blank" rel="noopener noreferrer" aria-label="캠퍼스타운 체험하기 (새 탭에서 열림)">체험하기 <span aria-hidden="true">↗</span></a>
         : <button type="button" className="campus-town-btn" disabled>오픈 예정</button>}
     </div>
   );

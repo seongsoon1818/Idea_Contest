@@ -1,5 +1,6 @@
-// CAMPUS TOWN 사이트 주소 (별도 배포 사이트). 주소가 정해지면 아래 따옴표 안에 https 주소를 입력한다.
-export const CAMPUS_TOWN_URL_SETTING = '';
+// CAMPUS TOWN 진입 카드. 사이트 주소는 이 폴더의 campus-town.json 의 "url" 에 입력한다 (빌드 불필요).
+// 주소가 비어 있거나 https 가 아니거나 파일을 읽지 못하면 '오픈 예정' 비활성 버튼을 그대로 둔다.
+export const CONFIG_PATH = 'campus-town.json';
 
 export function toSafeUrl(value) {
   const raw = String(value ?? '').trim();
@@ -12,11 +13,23 @@ export function toSafeUrl(value) {
   }
 }
 
-// https 주소일 때만 비활성 버튼을 새 탭 링크로 바꾼다. 그 외에는 '오픈 예정' 버튼을 그대로 둔다.
-export function activateCampusTown(root = document, value = CAMPUS_TOWN_URL_SETTING) {
+// Reads the config without the browser cache so an edited address shows on the next visit.
+export async function readCampusTownUrl(fetchFn = globalThis.fetch) {
+  try {
+    const response = await fetchFn(CONFIG_PATH, { cache: 'no-store' });
+    if (!response.ok) return '';
+    const data = await response.json();
+    return toSafeUrl(data?.url);
+  } catch {
+    return '';
+  }
+}
+
+// Replaces the disabled button with a new-tab link when the address is a valid https URL.
+export function activateCampusTown(root, value) {
   const url = toSafeUrl(value);
   const button = root.querySelector('.campus-town-note .campus-town-btn');
-  if (!url || !button) return false;
+  if (!url || !button || button.tagName === 'A') return false;
   const link = root.createElement('a');
   link.className = 'campus-town-btn';
   link.href = url;
@@ -28,4 +41,6 @@ export function activateCampusTown(root = document, value = CAMPUS_TOWN_URL_SETT
   return true;
 }
 
-activateCampusTown();
+if (typeof document !== 'undefined' && typeof location !== 'undefined') {
+  readCampusTownUrl().then((url) => activateCampusTown(document, url));
+}

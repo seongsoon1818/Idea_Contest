@@ -38,6 +38,18 @@
 - [알림 서버 연동 문서](docs/notification-integration.md) — API 어댑터·발송 규칙·남은 백엔드 작업
 - 알림함·독립 설정·정책·서비스 워커는 포함되어 있습니다. 실제 예약 푸시 발송은 서버 연결이 필요합니다.
 
+## CAMPUS TOWN 카드 주소
+
+사이드바 하단 CAMPUS TOWN 카드의 이동 주소는 `dist/campus-town.json`의 `url`에 넣습니다. 빌드는 필요 없습니다.
+
+```json
+{ "url": "https://캠퍼스타운-주소" }
+```
+
+- 비어 있거나 `https://`가 아니거나 파일을 읽지 못하면 버튼은 `오픈 예정`(비활성)으로 보입니다.
+- `https://` 주소가 있으면 `체험하기 ↗` 버튼이 새 탭에서 열립니다(`rel="noopener noreferrer"`).
+- 브라우저 캐시 없이 읽으므로 파일을 바꿔 배포하면 다음 방문부터 반영됩니다.
+
 ## 실행
 
 Python 3 기준, `frontend/dist`에서 다음 명령으로 정적 서버를 실행한 뒤 브라우저에서 표시된 주소를 엽니다. ES modules를 사용하므로 index.html을 file://로 직접 열지 않습니다.

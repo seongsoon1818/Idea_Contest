@@ -14,6 +14,18 @@ npm run preview    # 빌드 결과 확인
 
 백엔드 주소를 바꾸려면 `VITE_API_PROXY=http://주소 npm run dev` 로 실행합니다.
 
+## CAMPUS TOWN 카드 주소
+
+사이드바 하단 CAMPUS TOWN 카드의 이동 주소는 `dist/campus-town.json`의 `url`에 넣습니다. 빌드 없이 이 파일만 바꿔 배포하면 됩니다. 다음 빌드에도 같은 값을 쓰려면 원본인 `public/campus-town.json`도 함께 바꿔 주세요.
+
+```json
+{ "url": "https://캠퍼스타운-주소" }
+```
+
+- 비어 있거나 `https://`가 아니거나 파일을 읽지 못하면 버튼은 `오픈 예정`(비활성)으로 보입니다.
+- `https://` 주소가 있으면 `체험하기 ↗` 버튼이 새 탭에서 열립니다(`rel="noopener noreferrer"`).
+- 브라우저 캐시 없이 읽으므로 파일을 바꿔 배포하면 다음 방문부터 반영됩니다.
+
 ## 배포
 
 `dist/`를 저장소에 함께 올렸습니다. 지금 배포는 `deploy/compose.yaml`의 `web.build.context: ../frontend/dist`를 사용합니다. frontend3로 바꾸려면 이 값을 `../frontend3/dist`로 바꾸면 됩니다. `deploy/web.Dockerfile`은 그대로 써도 됩니다. 소스를 고친 뒤에는 `npm run build`로 `dist/`를 다시 만들어 함께 올려 주세요.
