@@ -50,10 +50,26 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    networks:
+      - default
+      - tunnel
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - certificates:/data
       - caddy_config:/config
+  cloudflared:
+    image: cloudflare/cloudflared:2026.11.0
+    profiles: ["tunnel"]
+    restart: unless-stopped
+    command: ["tunnel", "--no-autoupdate", "run"]
+    environment:
+      - TUNNEL_TOKEN
+    depends_on:
+      - web
+    networks:
+      - tunnel
+networks:
+  tunnel:
 volumes:
   mysql:
   certificates:
