@@ -214,4 +214,4 @@ else if(!browsing||isAuthHash(location.hash))welcomeOrLogin();else browse();
 
 window.addEventListener('hsu-session-expired',()=>{if(getAccountUser())setAccountSession(null);});
 // The adapter emits this only after the server logout request succeeds.
-window.addEventListener('hsu-signout',()=>{browsing=false;try{sessionStorage.removeItem(GUEST_KEY);}catch{}returnHash='#recommend';history.replaceState(null,'','#login');showLogin();});
+window.addEventListener('hsu-signout',()=>{browsing=false;try{sessionStorage.removeItem(GUEST_KEY);}catch{}returnHash='#recommend';history.replaceState(null,'','#login');showLogin();document.querySelector('#login-title')?.focus();});
