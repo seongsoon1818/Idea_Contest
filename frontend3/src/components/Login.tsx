@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
 import { ProviderSymbol } from '../lib/icons';
 import { usernameError, passwordError, confirmationError } from '../lib/authRules';
 import { useUI } from '../app/store';
-import { authenticate, browse, openSignup, restoreAccount, returnToLogin } from '../app/actions';
+import { authFocus, authenticate, browse, openSignup, restoreAccount, returnToLogin } from '../app/actions';
 
 const BackArrow = () => <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M20 12H4m7-7-7 7 7 7" /></svg>;
 
@@ -41,7 +41,8 @@ export function LoginScreen() {
     if (prev === 'retry' && s.auth === 'pending') retried.current = true;
     const fromRestore = prev === 'pending' && s.auth === 'login' && !s.authMessage && !retried.current;
     if (s.auth !== 'pending') retried.current = false;
-    if (s.auth !== 'hidden' && s.auth !== 'welcome' && s.auth !== 'pending' && !fromRestore) titleRef.current?.focus();
+    const fromNavigation = authFocus.skipNext; authFocus.skipNext = false;
+    if (s.auth !== 'hidden' && s.auth !== 'welcome' && s.auth !== 'pending' && !fromRestore && !fromNavigation) titleRef.current?.focus();
   }, [s.auth, s.authMessage]);
 
   const errors = [idTaken || usernameError(form.id), passwordError(form.password), confirmationError(form.password, form.confirm)];
@@ -172,7 +173,9 @@ export function LoginScreen() {
 /** Body classes and inert surfaces while the login gate is shown. */
 export function useLoginGate(surfaces: (HTMLElement | null)[], dialog: HTMLElement | null) {
   const { auth } = useUI();
-  useEffect(() => {
+  // Layout effect: inert must be cleared before ModalHost focuses the opened dialog (a passive effect),
+  // otherwise the welcome guide opens without focus (frontend2 focuses its title).
+  useLayoutEffect(() => {
     document.body.classList.toggle('login-view', auth !== 'hidden');
     document.body.classList.toggle('welcome-view', auth === 'welcome');
     surfaces.forEach((el) => { if (el) el.inert = auth !== 'hidden'; });

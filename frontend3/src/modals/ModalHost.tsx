@@ -57,6 +57,19 @@ export function ModalHost({ profile, dialogRef }: { profile: Profile | null; dia
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
+  // Like frontend2's openModal: when the dialog's content is swapped (loading → result) and the focused
+  // control was removed with it, focus the new content's title or close button instead of leaving it on <body>.
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    const observer = new MutationObserver(() => {
+      if (!dialog.open || dialog.contains(document.activeElement)) return;
+      (dialog.querySelector<HTMLElement>('[data-autofocus]') || dialog.querySelector<HTMLElement>('.close-btn'))?.focus();
+    });
+    observer.observe(dialog, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, [dialogRef]);
+
   const onCancel = (e: React.SyntheticEvent) => {
     e.preventDefault();
     if (modal?.kind === 'track-picker' && s.trackPicker?.menu) setUI({ trackPicker: { ...s.trackPicker, menu: null } });

@@ -20,7 +20,7 @@
 <meta name="twitter:description" content="학년·트랙·관심 분야에 맞는 공지사항과 비교과프로그램을 한곳에서 확인하세요.">
 <meta name="twitter:image" content="https://hsupick-campus-idea-contest.luckycrown8.chatgpt.site/assets/share-card-v1.png">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%232458e8'/%3E%3Ctext x='32' y='47' font-family='Arial' font-weight='bold' font-size='48' fill='white' text-anchor='middle'%3E!%3C/text%3E%3C/svg%3E">
-<link rel="stylesheet" href="styles.css?v=2.0.0-live">
+<link rel="stylesheet" href="styles.css?v=2.0.0-live-ct2">
 </head>
 <body class="login-view">
 <section hidden id="login-screen" class="login-screen" aria-labelledby="login-title">
@@ -62,7 +62,7 @@
 <aside class="sidebar">
  <a href="#recommend" class="brand" aria-label="HSU PICK 추천 홈"><img class="brand-logo" src="assets/hsu-pick-logo.png" width="86" height="47" alt="HSU PICK"></a>
  <nav class="desktop-nav" aria-label="주 메뉴"></nav>
- <div class="sidebar-note"><span class="note-icon">✦</span><b>학교 소식, 나에게 맞게.</b><p>흩어져 있던 기회를<br>하나의 PICK으로 모아보세요.</p></div>
+ <div class="sidebar-note campus-town-note"><span class="note-icon" aria-hidden="true">✦</span><span class="campus-town-eyebrow">CAMPUS TOWN</span><p>나만의 캠퍼스타운 만들기</p><button type="button" class="campus-town-btn" disabled>오픈 예정</button></div>
  <div class="sidebar-bottom">HSU PICK</div>
 </aside>
 <div class="workspace">
@@ -76,6 +76,8 @@
 <div id="connection-status" role="status" aria-live="polite" hidden></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <script type="module" src="app.js?v=2.0.0-live"></script>
-<script type="module" src="login.js?v=1.17.0-auth3"></script>
+<script type="module" src="login.js?v=1.17.0-auth4"></script>
+<script type="module" src="campus-town.js?v=2"></script>
+<script type="module" src="focus-keeper.js?v=1"></script>
 </body>
 </html>
