@@ -42,6 +42,11 @@ assert.equal(unitLine(T({ academicScope: 'RESTRICTED', units: [{ name: '경영�
 assert.deepEqual(targetLines(T({}), me), ['3학년']);
 assert.deepEqual(targetLines(T({ gradeScope: 'UNKNOWN', academicScope: 'UNKNOWN' }), me), [ORIGINAL]);
 assert.deepEqual(targetLines(T({ academicScope: 'UNKNOWN' }), me), ['3학년', ORIGINAL]);
+// My grade is not accepted → grade line only, even when a slot matches or the unit is unknown.
+assert.deepEqual(targetLines(T({ gradeScope: 'RESTRICTED', grades: [4, 'other'], academicScope: 'RESTRICTED', units: [{ id: '11' }, { id: '22' }] }), me), ['4학년 이상']);
+assert.deepEqual(targetLines(T({ gradeScope: 'RESTRICTED', grades: [1, 2], academicScope: 'UNKNOWN' }), me), ['1·2학년']);
+// Without a profile both lines stay.
+assert.deepEqual(targetLines(T({ gradeScope: 'RESTRICTED', grades: [1, 2], academicScope: 'RESTRICTED', units: [{ id: '11' }] }), null), ['1·2학년', ORIGINAL]);
 assert.deepEqual(targetLines(T({ academicScope: 'RESTRICTED', units: [{ id: '11' }] }), me), ['3학년', '1트랙']);
 
 // Deadline: 26.11.17 (화) [+ 23:00].

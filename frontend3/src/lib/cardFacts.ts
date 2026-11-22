@@ -2,7 +2,7 @@
 //
 // 대상: line 1 = grade, line 2 = which of MY slots the post is for.
 //   - grade: my grade when the post accepts it, otherwise the post's grades; unknown → 원문 확인.
-//   - slot: no academic condition → empty; condition matches my 1/2/3 slot → "1트랙" ("1·2트랙"),
+//   - slot: my grade is not accepted → empty (the grade line already says so); no academic condition → empty; condition matches my 1/2/3 slot → "1트랙" ("1·2트랙"),
 //     or "내 전공" when the matching slot is not a track; no match / unknown / no profile → 원문 확인.
 // 마감: "26.11.17 (화)" and, when the time is known, "23:00" on a second line; none → 원문 확인.
 // 혜택: programs with points → "비교과 10pt"; anything else → 원문 확인.
@@ -63,8 +63,10 @@ export function unitLine(target: TargetRules, profile: FactProfile | null): stri
   return tracks.length ? `${tracks.join('·')}트랙` : '내 전공';
 }
 
-// Both unknown → a single 원문 확인 line.
+// Both unknown → a single 원문 확인 line. My grade not accepted → grade line only.
 export function targetLines(target: TargetRules, profile: FactProfile | null): string[] {
+  const mine = profile?.grade ?? null;
+  if (mine && target.gradeScope === 'RESTRICTED' && !target.grades.includes(mine)) return [gradeLine(target, profile)];
   const lines = [gradeLine(target, profile), unitLine(target, profile)].filter(Boolean);
   return lines.every((line) => line === ORIGINAL) ? [ORIGINAL] : lines;
 }
