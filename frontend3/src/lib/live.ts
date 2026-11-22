@@ -1,5 +1,6 @@
 // Backend data layer: cached API reads + conversion to the item shape the screens use.
 // (TypeScript port of frontend2/dist/live.js and campus-store.js.)
+import { boundaryTime, pointsFrom, type FactGrade, type TargetRules } from './cardFacts';
 import { campusApi } from './accountApi';
 import { getAccountUser } from './session';
 import { todayDate } from './data';
@@ -9,7 +10,8 @@ export type ContentType = 'notice' | 'program';
 export type Status = 'open' | 'upcoming' | 'closed' | 'unknown' | 'not_applicable';
 export type Grade = 1 | 2 | 3 | 4 | 'other';
 
-export interface Profile { name: string; grade: Grade | null; tracks: string[]; interests: string[] }
+export interface ProfileSlot { slot: number; id: string; name: string; kind: string | null; parentId: string | null }
+export interface Profile { name: string; grade: Grade | null; tracks: string[]; interests: string[]; slots?: ProfileSlot[] }
 export interface Bookmark { saved: boolean; deadlineReminderEnabled?: boolean | null; savedAt?: string | null }
 export interface Eligibility { status?: string; gradeMatch?: string; academicMatch?: string }
 export interface Recommendation { reasons?: string[]; eligibility?: Eligibility }
@@ -19,6 +21,7 @@ export interface Item {
   id: string; rawId: string; type: ContentType; title: string; subtitle: string;
   noticeCategory: string | null; programCategory: string | null; category: string | null;
   status: Status; days: number | null; start: string | null; deadline: string | null; startText: string; deadlineText: string;
+  deadlineTime: string | null; points: number | null; targetRules?: TargetRules;
   benefit: string; targetText: string; tags: string[]; publishedAt: string; department: string; originalUrl: string;
   bookmark: Bookmark | null; recommendation: Recommendation | null;
   grades: number[]; tracks: string[]; trackEligibilityKnown: boolean; targetsLoaded: boolean;
@@ -66,6 +69,8 @@ export function toItem(card: any, previous?: Item): Item {
     days: typeof card.daysLeft === 'number' ? card.daysLeft : null,
     start: day(card.applicationStart), deadline: day(card.deadline),
     startText: raw(card.applicationStart), deadlineText: raw(card.deadline),
+    deadlineTime: boundaryTime(card.deadline),
+    points: card.type === 'program' ? pointsFrom(card.benefitSummary) : null,
     benefit: previous?.detailed ? previous.benefit : text(card.benefitSummary),
     targetText: text(card.targetSummary),
     tags: Array.isArray(card.tags) ? card.tags : [],
@@ -89,6 +94,12 @@ export function applyTargets(item: Item, rules: any) {
     ? [...new Set(required(rules.grades).map((entry) => GRADE_NUMBER[entry.grade]).filter(Boolean))].sort() : [];
   item.tracks = rules.academicScope === 'RESTRICTED' ? required(rules.academicUnits).map((entry) => entry.unit?.name).filter(Boolean) : [];
   item.trackEligibilityKnown = rules.academicScope !== 'UNKNOWN';
+  // Raw rules for the 대상 cell: grades incl. OTHER (4학년 이상) and units with ids for slot matching.
+  item.targetRules = {
+    gradeScope: rules.gradeScope || 'UNKNOWN', academicScope: rules.academicScope || 'UNKNOWN',
+    grades: required(rules.grades).map((entry) => (entry.grade === 'OTHER' ? 'other' : GRADE_NUMBER[entry.grade])).filter(Boolean) as FactGrade[],
+    units: required(rules.academicUnits).map((entry) => ({ id: entry.unit?.id ?? null, name: entry.unit?.name || '', includeDescendants: !!entry.includeDescendants })),
+  };
   item.targetsLoaded = true;
   return item;
 }
@@ -157,6 +168,8 @@ export function profileFromApi(data: any): Profile | null {
     name: data.name || '',
     grade: data.grade === 'OTHER' ? 'other' : GRADE_NUMBER[data.grade] ?? null,
     tracks: [...(data.academicUnits || [])].sort((a, b) => a.slot - b.slot).map((entry) => entry.unit?.name).filter(Boolean),
+    slots: [...(data.academicUnits || [])].filter((entry) => entry.unit).sort((a, b) => a.slot - b.slot)
+      .map((entry) => ({ slot: entry.slot, id: String(entry.unit.id), name: entry.unit.name, kind: entry.unit.kind ?? null, parentId: entry.unit.parentId == null ? null : String(entry.unit.parentId) })),
     interests: (data.interests || []).map((topic: any) => topic.code),
   };
 }
@@ -235,6 +248,18 @@ class LiveStore {
     if (!getAccountUser()) return null;
     const entry = this.read('/users/me/profile');
     return entry.data ? profileFromApi(entry.data) : null;
+  }
+  /** id → parent id of every academic unit, for "includes descendants" target rules. null until loaded. */
+  private parentsFrom: unknown = null;
+  private parents: Map<string, string | null> | null = null;
+  unitParents(): Map<string, string | null> | null {
+    const entry = this.read<{ items?: { id: string; parentId?: string | null }[] }>('/catalog/academic-units');
+    if (!entry.data) return null;
+    if (this.parentsFrom !== entry.data) {
+      this.parentsFrom = entry.data;
+      this.parents = new Map((entry.data.items || []).map((unit) => [String(unit.id), unit.parentId == null ? null : String(unit.parentId)]));
+    }
+    return this.parents;
   }
   async unitIdsByName() {
     const data = await this.call<{ items: { id: string; name: string }[] }>('/catalog/academic-units');

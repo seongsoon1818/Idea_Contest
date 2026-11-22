@@ -1,10 +1,12 @@
-import type { ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Icon } from '../lib/icons';
 import { categoryFor } from '../lib/data';
 import type { Item, Profile } from '../lib/live';
 import { useUI } from '../app/store';
 import { openModal, toggleCompare, toggleSave, removeCompare, isSaved } from '../app/actions';
-import { Badge, Eligibility, benefitSummary, fmt, target, recommendationReason, applicationText, programInfo } from './format';
+import { Badge, Eligibility, target, recommendationReason, applicationText, programInfo } from './format';
+import { live } from '../lib/live';
+import { ORIGINAL, benefitCompact, benefitLine, deadlineCompact, deadlineLines, targetLines, type FactProfile, type TargetRules } from '../lib/cardFacts';
 
 export function Empty({ title, text, action, label, icon = 'search', onAction, login }: {
   title: string; text: ReactNode; action?: string; label?: ReactNode; icon?: string; onAction?: () => void; login?: boolean;
@@ -21,26 +23,60 @@ export function Empty({ title, text, action, label, icon = 'search', onAction, l
 }
 export const Loading = () => <div className="result-line" role="status"><span>불러오는 중…</span></div>;
 
-export function CardFacts({ item }: { item: Item }) {
-  const grade = !item.targetsLoaded ? '확인 중' : !item.grades.length ? '원문 확인' : item.grades.length === 4 ? '전 학년' : item.grades.join('·') + '학년';
-  const fullDeadline = item.deadlineText || '원문 확인';
-  const fullTarget = target(item), fullBenefit = item.benefit || '미기재 · 원문 확인';
+/** One fact cell: full lines, else the narrow form, else 원문 확인 (re-checked on content change and window resize). */
+function FactCell({ label, icon, lines, full, className, compact = null }: { label: string; icon: string; lines: string[]; full: string; className?: string; compact?: string[] | null }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [stage, setStage] = useState(0); // 0 full, 1 narrow form, 2 원문 확인
+  const [size, setSize] = useState(0);
+  const key = lines.join('\n') + '|' + (compact || []).join('\n');
+  useLayoutEffect(() => { setStage(0); }, [key, size]);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (stage === 2 || !el || !el.getClientRects().length) return;
+    if ([...el.children].some((line) => line.scrollWidth > line.clientWidth + 1)) setStage(stage === 0 && compact?.length ? 1 : 2);
+  });
+  useEffect(() => {
+    const onResize = () => setSize((n) => n + 1);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+  return (
+    <div className="fact-cell">
+      <dt><Icon name={icon} /> {label}</dt>
+      <dd className={className} title={full} aria-label={`${label}: ${full}`}>
+        <span className="card-fact-preview" ref={ref}>{(stage === 0 ? lines : stage === 1 && compact ? compact : [ORIGINAL]).map((line, n) => <span className="fact-line" key={n}>{line}</span>)}</span>
+      </dd>
+    </div>
+  );
+}
+
+function factsTarget(item: Item): TargetRules {
+  if (item.targetRules) return item.targetRules;
+  return {
+    gradeScope: !item.grades.length ? 'UNKNOWN' : item.grades.length === 4 ? 'ALL' : 'RESTRICTED', grades: item.grades as TargetRules['grades'],
+    academicScope: item.trackEligibilityKnown === false ? 'UNKNOWN' : item.tracks.length ? 'RESTRICTED' : 'ALL', units: item.tracks.map((name) => ({ name })),
+  };
+}
+function factsProfile(profile: Profile | null): FactProfile | null {
+  if (!profile) return null;
+  if (!profile.slots) return { grade: profile.grade, slots: profile.tracks.filter(Boolean).map((name, n) => ({ slot: n + 1, name })) };
+  const parents = live.unitParents();
+  const ancestors = (id: string | null) => {
+    const list: string[] = [];
+    for (let p = id; p && !list.includes(p); p = parents?.get(p) ?? null) list.push(p);
+    return list;
+  };
+  return { grade: profile.grade, slots: profile.slots.map((slot) => ({ ...slot, ancestors: ancestors(slot.parentId) })) };
+}
+
+/** 대상 · 마감 · 혜택 cells; the rules live in lib/cardFacts.ts (same as frontend2). */
+export function CardFacts({ item, profile }: { item: Item; profile: Profile | null }) {
+  const who = !item.targetsLoaded ? ['확인 중'] : targetLines(factsTarget(item), factsProfile(profile));
   return (
     <dl className="card-facts">
-      <div className="fact-cell">
-        <dt><Icon name="user" /> 대상</dt>
-        <dd className="fact-target" title={fullTarget} aria-label={`대상: ${fullTarget}`}>
-          <span className="card-fact-preview"><span>{grade}</span>{item.tracks.length ? <span>지정트랙</span> : null}</span>
-        </dd>
-      </div>
-      <div className="fact-cell">
-        <dt><Icon name="calendar" /> 마감</dt>
-        <dd title={fullDeadline} aria-label={`마감: ${fullDeadline}`}><span className="card-fact-preview">{item.deadline ? fmt(item.deadline) + '까지' : '원문 확인'}</span></dd>
-      </div>
-      <div className="fact-cell">
-        <dt><Icon name="exclamation" /> 혜택</dt>
-        <dd title={fullBenefit} aria-label={`혜택: ${fullBenefit}`}><span className="card-fact-preview">{benefitSummary(item)}</span></dd>
-      </div>
+      <FactCell label="대상" icon="user" lines={who} full={target(item)} className="fact-target" />
+      <FactCell label="마감" icon="calendar" lines={deadlineLines(item.deadline, item.deadlineTime)} compact={deadlineCompact(item.deadline, item.deadlineTime)} full={item.deadlineText || '원문 확인'} />
+      <FactCell label="혜택" icon="exclamation" lines={[benefitLine(item.type, item.points)]} compact={benefitCompact(item.type, item.points)} full={item.benefit || '미기재 · 원문 확인'} />
     </dl>
   );
 }
@@ -95,8 +131,7 @@ export function Card({ item, profile, featured = false, comparing = false }: {
         <div className="card-title-row">
           <button className="title-button" data-action="detail" data-id={item.id} aria-label={`${item.title} 상세 정보 보기`} onClick={open}>{item.title}</button>
         </div>
-        {item.subtitle ? <p className="card-description">{item.subtitle}</p> : null}
-        <CardFacts item={item} />
+        <CardFacts item={item} profile={profile} />
         {comparing ? <ComparisonDetails item={item} profile={profile} /> : null}
       </div>
       {showReason && !comparing ? (

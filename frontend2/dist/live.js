@@ -5,6 +5,7 @@ import {campusApi} from './account-api.js?v=3';
 import {CampusStore} from './campus-store.js';
 import {getAccountUser} from './account-session.js?v=1.16.73';
 import {todayDate} from './data.js?v=1.16.73';
+import {boundaryTime, pointsFrom} from './card-facts.js?v=2';
 
 export const PAGE_SIZE = 20;
 export const liveKey = (type, id) => `${type}:${id}`;
@@ -49,6 +50,8 @@ export function toItem(card, previous) {
   days: typeof card.daysLeft === 'number' ? card.daysLeft : null,
   start: day(card.applicationStart), deadline: day(card.deadline),
   startText: raw(card.applicationStart), deadlineText: raw(card.deadline),
+  deadlineTime: boundaryTime(card.deadline),
+  points: card.type === 'program' ? pointsFrom(card.benefitSummary) : null,
   benefit: previous?.detailed ? previous.benefit : text(card.benefitSummary),
   targetText: text(card.targetSummary),
   tags: Array.isArray(card.tags) ? card.tags : [],
@@ -71,6 +74,12 @@ export function applyTargets(item, rules) {
   ? [...new Set(required(rules.grades).map(entry => GRADE_NUMBER[entry.grade]).filter(Boolean))].sort() : [];
  item.tracks = rules.academicScope === 'RESTRICTED' ? required(rules.academicUnits).map(entry => entry.unit?.name).filter(Boolean) : [];
  item.trackEligibilityKnown = rules.academicScope !== 'UNKNOWN';
+ // Raw rules for the 대상 cell: grades incl. OTHER (4학년 이상) and units with ids for slot matching.
+ item.targetRules = {
+  gradeScope: rules.gradeScope || 'UNKNOWN', academicScope: rules.academicScope || 'UNKNOWN',
+  grades: required(rules.grades).map(entry => entry.grade === 'OTHER' ? 'other' : GRADE_NUMBER[entry.grade]).filter(Boolean),
+  units: required(rules.academicUnits).map(entry => ({id: entry.unit?.id ?? null, name: entry.unit?.name || '', includeDescendants: !!entry.includeDescendants}))
+ };
  item.targetsLoaded = true;
  return item;
 }
@@ -135,6 +144,8 @@ export function profileFromApi(data) {
   name: data.name || '',
   grade: data.grade === 'OTHER' ? 'other' : GRADE_NUMBER[data.grade] ?? null,
   tracks: [...(data.academicUnits || [])].sort((a, b) => a.slot - b.slot).map(entry => entry.unit?.name).filter(Boolean),
+  slots: [...(data.academicUnits || [])].filter(entry => entry.unit).sort((a, b) => a.slot - b.slot)
+   .map(entry => ({slot: entry.slot, id: entry.unit.id, name: entry.unit.name, kind: entry.unit.kind, parentId: entry.unit.parentId ?? null})),
   interests: (data.interests || []).map(topic => topic.code)
  };
 }
@@ -187,12 +198,20 @@ export function createLive() {
   const entry = read('/users/me/profile', changed);
   return entry.data ? profileFromApi(entry.data) : null;
  }
+ // id → parent id of every academic unit, for "includes descendants" target rules. null until loaded.
+ let parentsFrom = null, parents = null;
+ function unitParents(changed) {
+  const entry = read('/catalog/academic-units', changed);
+  if (!entry.data) return null;
+  if (parentsFrom !== entry.data) { parentsFrom = entry.data; parents = new Map((entry.data.items || []).map(unit => [String(unit.id), unit.parentId == null ? null : String(unit.parentId)])); }
+  return parents;
+ }
  async function unitIdsByName() {
   const data = await call('/catalog/academic-units');
   return new Map((data.items || []).map(unit => [unit.name, unit.id]));
  }
  return {
-  read, remember, rememberDetail, loadTargets, call, profile, unitIdsByName,
+  read, remember, rememberDetail, loadTargets, call, profile, unitIdsByName, unitParents,
   item: key => items.get(key),
   setBookmark(key, bookmark) {
    bookmarks.set(key, bookmark);

@@ -281,7 +281,9 @@ check(()=>assert.equal($('.filters').querySelector('button').textContent.trim(),
 check(()=>assert($('.filters').querySelectorAll('button').every(e=>!e.querySelector('.icon'))));
 homeSelect('notice');check(()=>assert.deepEqual(mainIds(),baselineNotices));
 homeSelect('program');check(()=>assert.deepEqual(mainIds(),baselinePrograms));
-check(()=>assert.equal($('[data-item="p06"]').querySelector('.fact-target').textContent,'전 학년지정트랙'));
+// Before profile input a track condition cannot be matched: grade line + 원문 확인; no grey description on cards.
+check(()=>assert.equal($('[data-item="p06"]').querySelector('.fact-target').textContent,'전 학년원문 확인'));
+check(()=>assert(!all('.card-description').length,'Cards no longer show the grey description'));
 check(()=>assert($('#search-input')&&$('#sort-filter')&&$('#open-filter'),'Both home types expose search, sorting and open-only controls'));
 check(()=>assert.equal($('.filters').querySelectorAll('[data-category="all"]').length,1));
 check(()=>assert.equal($('.filters').querySelector('button').textContent.trim(),'전체'));
@@ -300,7 +302,7 @@ check(()=>assert.equal($('.type-tabs').querySelector('[aria-pressed="true"]').da
 check(()=>assert.deepEqual(mainIds(),baselinePrograms,'Saving retains the current recommendation list'));
 check(()=>assert.equal(all('.stat-number').at(-1).textContent,'1'));
 homeSelect('program');click('[data-action="save"][data-id="p02"]');
-homeSelect('notice');check(()=>assert.equal($('[data-item="n03"]').querySelector('.fact-target').textContent,'3·4학년지정트랙'));
+homeSelect('notice');check(()=>assert.equal($('[data-item="n03"]').querySelector('.fact-target').textContent,'3·4학년원문 확인'));
 navigate('explore');
 check(()=>assert.equal(location.hash,'#notices'));
 check(()=>assert(!document.textContent.includes('전체 탐색')));
@@ -346,6 +348,8 @@ check(()=>assert.equal($('#interest-form').querySelectorAll('input[name="interes
 interest('study');submit('#interest-form');
 check(()=>assert(!$('#modal').open));
 check(()=>assert(text().includes('고민 많은 4학년,한성 PICK과 함께해요!')));homeSelect('notice');
+// With the profile (4학년, 1트랙 기업경영, 2트랙 글로벌비즈니스) the 대상 cell shows my grade and matching slots.
+check(()=>assert.deepEqual($('[data-item="n03"]').querySelector('.fact-target').querySelectorAll('.fact-line').map(e=>e.textContent),['4학년','1·2트랙']));
 check(()=>assert(!$('[data-item="n12"]')));
 check(()=>assert(!$('[data-item="p11"]')));
 check(()=>assert($('[data-item="n03"]')));
