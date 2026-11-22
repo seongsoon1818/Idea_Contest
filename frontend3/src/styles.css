@@ -1005,3 +1005,5 @@ dialog.onboarding-dialog[open]{display:flex;flex-direction:column}
 :root,body,dialog{color-scheme:light}
 dialog{background:#fff}
 .form-input{background:#fff}
+/* 비밀번호 안내 문구를 위 입력칸에 붙이고, 다음 항목과는 기본 간격 유지 */
+.account-label+.signup-hint{margin-top:-12px;margin-bottom:18px}
