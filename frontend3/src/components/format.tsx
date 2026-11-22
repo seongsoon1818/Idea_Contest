@@ -10,15 +10,6 @@ export const target = (i: Item) =>
   !i.grades.length ? '원문 확인'
     : `${i.grades.length === 4 ? '전 학년' : i.grades.map((g) => g + '학년').join('·')} · ${i.trackEligibilityKnown === false ? '트랙 조건 원문 확인' : i.tracks.length ? i.tracks.map((t) => t + '트랙').join(', ') : '트랙 무관'}`;
 
-export function benefitSummary(i: Item) {
-  if (!i.benefit) return '원문 확인';
-  const points = i.benefit.match(/비교과 (\d+)pt/);
-  if (points) return points[1] + 'pt';
-  const money = i.benefit.match(/(\d+)만 원/);
-  if (money) return (i.benefit.includes('최대') ? '최대 ' : '') + money[1] + '만 원';
-  if (i.benefit.includes('실습지원비')) return '실습지원비';
-  return i.benefit.split(' · ')[0];
-}
 
 export function Badge({ item }: { item: Item }) {
   const s = statusOf(item), d = daysLeft(item);

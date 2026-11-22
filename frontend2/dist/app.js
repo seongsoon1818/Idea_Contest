@@ -1,5 +1,6 @@
 import {usesCampusApi,campusApi} from './account-api.js?v=3';
-import {createLive,parseKey,listPath as liveListPath,NAME_PATTERN,profileFromApi} from './live.js?v=2.0.0';
+import {createLive,parseKey,listPath as liveListPath,NAME_PATTERN,profileFromApi} from './live.js?v=2.0.1';
+import {targetLines,deadlineLines,deadlineCompact,benefitLine,benefitCompact,fitFactCells} from './card-facts.js?v=2';
 import {createNotificationCenter} from './notifications.js?v=1.17.0';
 import {getAccountUser,setAccountSession,subscribeAccountSession,logoutAccount} from './account-session.js?v=1.16.73';
 import {noticeImages} from './notice-images.js?v=1.16.76';
@@ -30,6 +31,17 @@ if(Number(profile?.grade)===1)profile={...profile,tracks:profile.tracks.slice(0,
 let saved=new Set(Array.isArray(stored.saved)?stored.saved.filter(id=>ITEMS.some(i=>i.id===id)):[]);
 let compared=new Set(),view='recommend',category='all',query='',type='all',sort='recommended',openOnly=true,savedTab='notice',recommendTab='notice',draft=null,lastFocus=null,modalView=null,toastTimer;
 const main=$('#main'), modal=$('#modal');
+// A fact line that does not fit its cell shows 원문 확인 (re-checked when cards are drawn or the window resizes).
+(function watchFactCells(){
+ if(typeof MutationObserver!=='function'||typeof requestAnimationFrame!=='function'||!document.body)return;
+ let queued=false;
+ const observer=new MutationObserver(records=>{if(records.some(r=>[...r.addedNodes].some(n=>n.nodeType===1&&(n.matches?.('.card-facts')||n.querySelector?.('.card-facts')))))schedule();});
+ const run=()=>{queued=false;fitFactCells(document);observer.takeRecords();};
+ function schedule(){if(!queued){queued=true;requestAnimationFrame(run);}}
+ observer.observe(document.body,{childList:true,subtree:true});
+ addEventListener('resize',schedule);
+ schedule();
+})();
 const mobileLayout=matchMedia('(max-width:800px)');
 const isSavedMobile=()=>view==='saved'&&mobileLayout.matches;
 let searchExpanded=false;
@@ -64,20 +76,27 @@ function badge(i){
  return `<span class="badge status-badge ${d===0?'today':d<=7?'deadline':'open'}">${d===0?'<span class="deadline-alert" aria-hidden="true">!</span> 오늘 마감':d<=7?'D-'+d:'모집 중'}</span>`;
 }
 function eligibility(i){if(i.live)return liveEligibility(i);if(!i.grades.length||i.trackEligibilityKnown===false)return '<span class="condition-pill warning">신청 대상은 원문에서 확인해 주세요</span>';if(!profile)return '<span class="condition-pill warning">내 정보를 입력해 대상 확인</span>';const m=matchProfile(i,profile);if(!m.eligible)return `<span class="condition-pill warning">${!gradeMatches(i,profile.grade)?'내 학년은 신청 대상이 아니에요':'내 트랙은 신청 대상이 아니에요'}</span>`;return `<span class="condition-pill eligibility-match ${statusOf(i)==='closed'?'closed':''}">${statusOf(i)==='closed'?'대상 조건 일치 · 모집 마감':statusOf(i)==='upcoming'?'대상 조건 일치 · 모집 예정':'내 학년·트랙 조건에 맞아요'}</span>`;}
-function benefitSummary(i){
- if(!i.benefit)return '원문 확인';
- const points=i.benefit.match(/비교과 (\d+)pt/);
- if(points)return points[1]+'pt';
- const money=i.benefit.match(/(\d+)만 원/);
- if(money)return (i.benefit.includes('최대')?'최대 ':'')+money[1]+'만 원';
- if(i.benefit.includes('실습지원비'))return '실습지원비';
- return i.benefit.split(' · ')[0];
+// 대상 · 마감 · 혜택 cells; the rules live in card-facts.js (same as frontend3).
+function factsTarget(i){
+ if(i.targetRules)return i.targetRules;
+ return {gradeScope:!i.grades.length?'UNKNOWN':i.grades.length===4?'ALL':'RESTRICTED',grades:i.grades,
+  academicScope:i.trackEligibilityKnown===false?'UNKNOWN':i.tracks.length?'RESTRICTED':'ALL',units:i.tracks.map(name=>({name}))};
+}
+function factsProfile(){
+ if(!profile)return null;
+ if(!Array.isArray(profile.slots))return {grade:profile.grade,slots:profile.tracks.filter(Boolean).map((name,n)=>({slot:n+1,name}))};
+ const parents=connected?live.unitParents(()=>render()):null;
+ const ancestors=id=>{const list=[];for(let p=id==null?null:String(id);p&&!list.includes(p);p=parents?.get(p)??null)list.push(p);return list;};
+ return {grade:profile.grade,slots:profile.slots.map(slot=>({...slot,ancestors:ancestors(slot.parentId)}))};
+}
+function factCell(label,glyph,lines,full,cls='',compact=null){
+ return `<div class="fact-cell"><dt>${icon(glyph)} ${label}</dt><dd${cls?` class="${cls}"`:''} title="${esc(full)}" aria-label="${label}: ${esc(full)}"><span class="card-fact-preview" data-lines="${esc(JSON.stringify(lines))}"${compact?` data-compact="${esc(JSON.stringify(compact))}"`:''}>${lines.map(line=>`<span class="fact-line">${esc(line)}</span>`).join('')}</span></dd></div>`;
 }
 function cardFacts(i){
- const grade=i.live&&!i.targetsLoaded?'확인 중':!i.grades.length?'원문 확인':i.grades.length===4?'전 학년':i.grades.map(g=>g+'').join('·')+'학년';
- const targetSummary=`<span>${esc(grade)}</span>${i.tracks.length?'<span>지정트랙</span>':''}`;
- const fullDeadline=esc(i.live?(i.deadlineText||'원문 확인'):i.deadline.replaceAll('-','.'));
- return `<dl class="card-facts"><div class="fact-cell"><dt>${icon('user')} 대상</dt><dd class="fact-target" title="${esc(target(i))}" aria-label="대상: ${esc(target(i))}"><span class="card-fact-preview">${targetSummary}</span></dd></div><div class="fact-cell"><dt>${icon('calendar')} 마감</dt><dd title="${fullDeadline}" aria-label="마감: ${fullDeadline}"><span class="card-fact-preview">${i.deadline?fmt(i.deadline)+'까지':'원문 확인'}</span></dd></div><div class="fact-cell"><dt>${icon('exclamation')} 혜택</dt><dd title="${esc(i.benefit||'미기재 · 원문 확인')}" aria-label="혜택: ${esc(i.benefit||'미기재 · 원문 확인')}"><span class="card-fact-preview">${esc(benefitSummary(i))}</span></dd></div></dl>`;
+ const who=i.live&&!i.targetsLoaded?['확인 중']:targetLines(factsTarget(i),factsProfile());
+ const points=i.live?i.points:Number((i.benefit||'').match(/비교과\s*(\d+(?:\.\d+)?)\s*pt/)?.[1]??NaN);
+ const fullDeadline=i.live?(i.deadlineText||'원문 확인'):(i.deadline||'원문 확인').replaceAll('-','.');
+ return `<dl class="card-facts">${factCell('대상','user',who,target(i),'fact-target')}${factCell('마감','calendar',deadlineLines(i.deadline,i.deadlineTime||null),fullDeadline,'',deadlineCompact(i.deadline,i.deadlineTime||null))}${factCell('혜택','exclamation',[benefitLine(i.type,points)],i.benefit||'미기재 · 원문 확인','',benefitCompact(i.type,points))}</dl>`;
 }
 function recommendedItems(onlyOpen=true){
  return ITEMS.filter(i=>(!onlyOpen||statusOf(i)==='open')&&(!profile||matchProfile(i,profile).eligible))
@@ -106,7 +125,7 @@ function card(i,featured=false,comparing=false){
  const reason=recommendationReason(i),showReason=!comparing&&(view==='recommend'||isRecommendedTab());
  return `<article class="card ${featured?'featured-card':''} ${comparing?'comparison-card':''}" data-item="${i.id}" data-type="${i.type}" aria-label="${i.type==='notice'?'공지사항':'비교과 프로그램'}: ${esc(i.title)}">
   <div class="card-top"><span class="category-icon ${c.color}">${icon(c.icon)}</span><span class="badge category-badge">${c.name}</span><div class="card-status-actions">${badge(i)}<button class="save-btn ${saved.has(i.id)?'saved':''}" data-action="save" data-id="${i.id}" aria-label="${esc(i.title)} ${saved.has(i.id)?'저장 해제':'저장'}" aria-pressed="${saved.has(i.id)}">${icon('bookmark')}</button></div></div>
-  <div class="card-body"${comparing?'':` data-action="detail" data-id="${i.id}"`}><div class="card-title-row"><button class="title-button" data-action="detail" data-id="${i.id}" aria-label="${esc(i.title)} 상세 정보 보기">${esc(i.title)}</button></div>${i.subtitle?`<p class="card-description">${esc(i.subtitle)}</p>`:''}${cardFacts(i)}${comparing?comparisonDetails(i):''}</div>
+  <div class="card-body"${comparing?'':` data-action="detail" data-id="${i.id}"`}><div class="card-title-row"><button class="title-button" data-action="detail" data-id="${i.id}" aria-label="${esc(i.title)} 상세 정보 보기">${esc(i.title)}</button></div>${cardFacts(i)}${comparing?comparisonDetails(i):''}</div>
   ${showReason?`<div class="recommend-reason ${featured?'single-line':''}">${icon('spark')}<span title="${esc(reason)}">${reason}</span></div>`:''}
   <div class="card-bottom">${comparing?`<button class="remove-compare" data-action="remove-compare" data-id="${i.id}">선택 해제</button>`:`<label class="compare-check"><input type="checkbox" data-compare="${i.id}" ${compared.has(i.id)?'checked':''} aria-label="${esc(i.title)} AI 비교하기 선택">AI 비교하기</label>`}</div>
  </article>`;
