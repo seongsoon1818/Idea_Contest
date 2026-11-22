@@ -637,7 +637,7 @@ function detail(id){
   <section class="detail-group"><h3>${icon('exclamation')} 받을 수 있는 혜택</h3><p>${i.live&&i.benefitLines?.length?i.benefitLines.map(esc).join('<br>'):esc(i.benefit||'혜택이 기재되어 있지 않습니다. 원문을 확인해 주세요.')}</p></section>
   <section class="detail-group"><h3>${icon('check')} 미리 준비할 것</h3>${i.preparations.length?`<ul>${i.preparations.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:'<p>준비사항이 기재되어 있지 않습니다. 원문을 확인해 주세요.</p>'}</section>
   <section class="detail-group"><h3>${icon('building')} 운영·신청 안내</h3><p>운영 부서: ${esc(i.department||'원문 확인')}</p>${i.live&&i.guideLines?.length?`<ul>${i.guideLines.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}${applicationNotice()}</section>`}
-  ${i.type==='program'?imageGallery(i):''}${liveWarnings(i)}<div class="original-actions">${liveAttachments(i)}${shortcut}${mobileLayout.matches||i.type==='program'?'':`<a class="real-source" href="#source/${i.rawId||i.id}" data-action="source" data-id="${i.id}">공지 내용 보기 ${icon('external')}</a>`}</div>
+  ${i.type==='program'?imageGallery(i):''}${liveWarnings(i)}<div class="original-actions">${liveAttachments(i)}${shortcut}</div>
  </div><div class="modal-footer">${mobileLayout.matches?`<button class="primary" data-action="save" data-id="${i.id}" aria-pressed="${saved.has(i.id)}" aria-label="${saved.has(i.id)?'MY PICK 저장 해제':'MY PICK에 저장'}">${icon('bookmark')} MY PICK</button>`:`<button class="secondary" data-action="toggle-detail-compare" data-id="${i.id}">${icon('compare')} ${compared.has(i.id)?'비교 해제':'AI 비교하기'}</button><button class="primary" data-action="save" data-id="${i.id}" aria-pressed="${saved.has(i.id)}" aria-label="${saved.has(i.id)?'MY PICK 저장 해제':'MY PICK에 저장'}">${icon('bookmark')} MY PICK</button>`}</div>`,'detail-'+id);
 }
 function source(id){
