@@ -1,6 +1,6 @@
 import {usesCampusApi,campusApi} from './account-api.js?v=3';
 import {createLive,parseKey,listPath as liveListPath,NAME_PATTERN,profileFromApi} from './live.js?v=2.0.1';
-import {targetLines,deadlineLines,deadlineCompact,benefitLine,benefitCompact,fitFactCells} from './card-facts.js?v=2';
+import {targetLines,deadlineLines,deadlineCompact,benefitLine,benefitCompact,fitFactCells} from './card-facts.js?v=3';
 import {createNotificationCenter} from './notifications.js?v=1.17.0';
 import {getAccountUser,setAccountSession,subscribeAccountSession,logoutAccount} from './account-session.js?v=1.16.73';
 import {noticeImages} from './notice-images.js?v=1.16.76';

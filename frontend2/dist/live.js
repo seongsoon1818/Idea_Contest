@@ -5,7 +5,7 @@ import {campusApi} from './account-api.js?v=3';
 import {CampusStore} from './campus-store.js';
 import {getAccountUser} from './account-session.js?v=1.16.73';
 import {todayDate} from './data.js?v=1.16.73';
-import {boundaryTime, pointsFrom} from './card-facts.js?v=2';
+import {boundaryTime, pointsFrom} from './card-facts.js?v=3';
 
 export const PAGE_SIZE = 20;
 export const liveKey = (type, id) => `${type}:${id}`;
