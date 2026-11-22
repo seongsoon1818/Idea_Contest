@@ -97,11 +97,6 @@ export function DetailModal({ id, profile }: { id: string; profile: Profile | nu
         <Warnings item={item} />
         <div className="original-actions">
           <Attachments item={item} /><Shortcut item={item} />
-          {mobile || item.type === 'program' ? null : (
-            <a className="real-source" href={`#source/${item.rawId}`} data-action="source" data-id={item.id} onClick={(e) => { e.preventDefault(); openModal({ kind: 'source', id: item.id }); }}>
-              공지 내용 보기 <Icon name="external" />
-            </a>
-          )}
         </div>
       </div>
       <div className="modal-footer">
