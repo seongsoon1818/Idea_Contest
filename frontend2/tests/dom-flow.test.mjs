@@ -822,17 +822,18 @@ storage.clear();setup(true);await import('../dist/app.js?mobile-revision');
 check(()=>assert($('.mobile-nav').textContent.includes('MY PAGE')));
 navigate('notices');click('[data-category="scholarship"]');window.scrollY=312;
 const beforeDetail=mainIds();click('[data-action="detail"][data-id="n01"]');
-check(()=>assert.deepEqual($('#modal').querySelector('.modal-footer').querySelectorAll('button').map(b=>b.textContent.trim()),['MY PICK','뒤로가기']));
+check(()=>assert.deepEqual($('#modal').querySelector('.modal-footer').querySelectorAll('button').map(b=>b.textContent.trim()),['MY PICK']));
 check(()=>assert(!$('#modal').querySelector('[data-action="toggle-detail-compare"]')));
 history.back();
 check(()=>assert(!$('#modal').open&&$('[data-category="scholarship"]').attrs['aria-pressed']==='true'));
 check(()=>assert.deepEqual(mainIds(),beforeDetail));
 check(()=>assert.equal(window.scrollY,312));
 history.forward();check(()=>assert($('#modal').open&&$('#modal-title').textContent.includes('장학금')));
-click('[data-action="detail-back"]');check(()=>assert(!$('#modal').open));
-// App Back and browser Back both recover the previous logical overlay.
+click('.close-btn');check(()=>assert(!$('#modal').open));
+// Detail has no footer Back (✕ is in the header); browser Back recovers the previous logical overlay.
 navigate('recommend');click('[data-action="quick-open"]');click('[data-action="detail"][data-id="n01"]');
-click('[data-action="detail-back"]');check(()=>assert($('#modal-title').textContent.includes('모집 중인 기회')));
+check(()=>assert(!$('#modal').querySelector('[data-action="detail-back"]')));
+history.back();check(()=>assert($('#modal-title').textContent.includes('모집 중인 기회')));
 history.back();check(()=>assert(!$('#modal').open));
 navigate('profile');click('[data-action="profile"]');
 check(()=>assert($('#profile-track-fields').hidden&&$('#profile-form').querySelector('[type="submit"]').disabled));
@@ -899,8 +900,8 @@ for(const mobile of [false,true]){
  click($('#modal').querySelector('[data-action="save"]'));
  check(()=>assert.equal($('#modal').querySelector('.modal-content').scrollTop,240,'Saving retains the detail reading position'));
  check(()=>assert.equal($('#modal').scrollTop,90));
- check(()=>assert($('#modal').querySelector('[data-action="detail-back"]'),'Both layouts offer Back from detail'));
- click('[data-action="detail-back"]');
+ check(()=>assert(!$('#modal').querySelector('[data-action="detail-back"]'),'Detail footer has no Back; ✕ closes it'));
+ click('.close-btn');
  navigate('notices');
  for(const id of ['n01','n03']){const input=$(`[data-compare="${id}"]`);input.checked=true;document.dispatch('change',input);}
  click('[data-action="compare"]');click('[data-action="complete-compare"]');

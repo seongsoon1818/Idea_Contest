@@ -105,10 +105,9 @@ export function DetailModal({ id, profile }: { id: string; profile: Profile | nu
         </div>
       </div>
       <div className="modal-footer">
-        {mobile ? <>{saveButton}<button className="secondary" data-action="detail-back" onClick={() => back()}>뒤로가기</button></> : <>
+        {mobile ? saveButton : <>
           <button className="secondary" data-action="toggle-detail-compare" data-id={item.id} onClick={() => toggleCompare(item.id)}><Icon name="compare" /> {compared.includes(item.id) ? '비교 해제' : 'AI 비교하기'}</button>
           {saveButton}
-          <button className="secondary" data-action="detail-back" onClick={() => back()}>뒤로가기</button>
         </>}
       </div>
     </>
