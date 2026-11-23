@@ -63,6 +63,16 @@ export const cardSummarySelect = {
   audienceJson: true,
   tagsJson: true,
   applicationStatus: true,
+  gradeScope: true,
+  academicScope: true,
+  targetGrades: {
+    orderBy: [{ purpose: "asc" }, { grade: "asc" }],
+    select: { purpose: true, grade: true },
+  },
+  targetUnits: {
+    orderBy: [{ purpose: "asc" }, { academicUnitId: "asc" }],
+    select: { purpose: true, academicUnit: true, includeDescendants: true },
+  },
 } satisfies Prisma.NoticeSummarySelect;
 export const detailSummarySelect = {
   ...cardSummarySelect,
@@ -74,8 +84,6 @@ export const detailSummarySelect = {
   operationGuideJson: true,
   preparationsJson: true,
   detailsJson: true,
-  gradeScope: true,
-  academicScope: true,
   reviewedAt: true,
   reviewResolutionJson: true,
   periods: {
@@ -107,14 +115,6 @@ export const detailSummarySelect = {
       deadlineAt: true,
       factsJson: true,
     },
-  },
-  targetGrades: {
-    orderBy: [{ purpose: "asc" }, { grade: "asc" }],
-    select: { purpose: true, grade: true },
-  },
-  targetUnits: {
-    orderBy: [{ purpose: "asc" }, { academicUnitId: "asc" }],
-    select: { purpose: true, academicUnit: true, includeDescendants: true },
   },
 } satisfies Prisma.NoticeSummarySelect;
 
@@ -219,6 +219,7 @@ export function cardView(
     ...scheduleView(row),
     benefitSummary: firstBenefit ? benefitLabel(firstBenefit) : null,
     targetSummary: fact(obj(s?.audienceJson).description),
+    targetRules: publicTargets(s),
     thumbnail: thumbnailView(r.assets),
     tags: list(s?.tagsJson, str) ?? [],
     summaryStatus: s

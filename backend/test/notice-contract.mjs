@@ -214,12 +214,29 @@ export async function noticeContract(t, app, db, http) {
   });
   await period(restricted.s, range(day(-1), day(10)));
   const read = (id) => http("GET", "/notices/" + id, 200);
+  await t.test("N01 cards include public target rules, including unavailable summaries", async () => {
+    const { items } = (await http("GET", "/notices?status=all&size=100", 200)).data;
+    for (const n of [good, restricted, pending, unvalidated, stale, absent]) {
+      const card = items.find((item) => item.id === n.publicId);
+      assert(card);
+      assert(card.targetRules);
+      assert(!JSON.stringify(card.targetRules).includes(secret));
+    }
+    for (const n of [pending, unvalidated, stale, absent])
+      assert.deepEqual(items.find((item) => item.id === n.publicId).targetRules, {
+        gradeScope: "UNKNOWN", academicScope: "UNKNOWN", grades: [], academicUnits: [],
+      });
+    assert.deepEqual(items.find((item) => item.id === restricted.publicId).targetRules.grades, [
+      { purpose: "REQUIRED", grade: "YEAR_4" },
+    ]);
+  });
   await t.test(
     "N02 serves the public projection and a canonical external article, never raw content or evidence",
     async () => {
       const d = (await read(good.publicId)).data;
       assert.equal(d.card.originalUrl, good.canonicalUrl);
       assert.equal(d.card.bookmark, null);
+      assert.deepEqual(d.card.targetRules, d.targetRules);
       assert.equal(d.card.summaryStatus, "READY");
       assert.equal(d.card.recruitmentStatus, "open");
       assert.equal(d.card.deadlineCount, 2);
@@ -253,6 +270,7 @@ export async function noticeContract(t, app, db, http) {
         assert.equal(d.summary, null);
         assert.equal(d.bodyAvailable, false);
         assert.equal(d.card.summaryStatus, status);
+        assert.deepEqual(d.card.targetRules, d.targetRules);
         assert(!JSON.stringify(d).includes(secret));
       }
       assert.equal((await read(absent.publicId)).data.card.originalUrl, null);

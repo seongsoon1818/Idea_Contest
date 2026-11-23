@@ -442,6 +442,15 @@ export async function recommendationContract(t, app, db, http) {
         ),
       );
       assert.equal(a.content.recruitmentStatus, "closed");
+      assert.deepEqual(a.content.targetRules, a.targetRules);
+      for (const path of ["/notices?status=all&size=100", "/recommendations?type=notice&status=all&size=100"]) {
+        const cards = (await http("GET", path, 200)).data.items;
+        assert.deepEqual(cards.find((c) => c.id === restricted.id).targetRules, a.targetRules);
+      }
+      const savedNotice = await db.notice.findUniqueOrThrow({ where: { publicId: restricted.id } });
+      await db.userNoticeBookmark.create({ data: { userId: me.id, noticeId: savedNotice.id } });
+      const bookmarks = (await http("GET", "/users/me/bookmarks/notice?status=all&size=100", 200, { token: me.token })).data.items;
+      assert.deepEqual(bookmarks.find((item) => item.content?.id === restricted.id).content.targetRules, a.targetRules);
       assert.equal(a.content.recommendation.eligibility.status, "MATCH");
       assert.equal(b.targetRules.grades[0].grade, "YEAR_4");
       assert.equal(b.content.recommendation.eligibility.gradeMatch, "MISMATCH");

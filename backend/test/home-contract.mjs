@@ -257,6 +257,10 @@ export async function homeContract(t, app, db, http) {
           urgent = await rec("deadlineWithinDays=3&size=1");
         assert.deepEqual(data.noticePicks, notices.items);
         assert.deepEqual(data.programPicks, programs.items);
+        for (const card of [...data.noticePicks, ...data.programPicks]) {
+          const detail = (await http("GET", `/${card.type}s/${card.id}`, 200, options)).data;
+          assert.deepEqual(card.targetRules, detail.targetRules);
+        }
         assert.equal(
           data.stats.pickCount,
           notices.pagination.totalItems + programs.pagination.totalItems,
