@@ -222,6 +222,11 @@ export async function programContract(t, app, db, http) {
       assert.equal(open.items[0].noticeCategory, null);
       assert.equal(open.items[0].summaryStatus, "NOT_APPLICABLE");
       assert.equal(open.items[0].benefitSummary, "10pt");
+      for (const card of open.items) {
+        const d = (await http("GET", "/programs/" + card.id, 200)).data;
+        assert.deepEqual(card.targetRules, d.targetRules);
+        assert.deepEqual(d.card.targetRules, d.targetRules);
+      }
       for (const term of [
         "현직자",
         "마케팅",
@@ -500,6 +505,21 @@ export async function programContract(t, app, db, http) {
         (await detail(multi, { token: me.token })).card.recommendation.score,
         120,
       );
+      await db.programTargetGrade.create({
+        data: { revisionId: multi.r.id, purpose: "PREFERRED", grade: "YEAR_4", basisJson: { private: secret } },
+      });
+      await db.programTargetUnit.create({
+        data: { revisionId: multi.r.id, purpose: "RECOMMENDED", academicUnitId: second.id, basisJson: { private: secret } },
+      });
+      const rules = (await detail(multi)).targetRules;
+      const card = (await list("?status=all")).items.find((c) => c.id === multi.publicId);
+      assert.deepEqual(card.targetRules, rules);
+      assert.deepEqual(rules.grades, [{ purpose: "PREFERRED", grade: "YEAR_4" }]);
+      const required = rules.academicUnits.find((u) => u.purpose === "REQUIRED");
+      assert.equal(required.unit.id, String(track.parentId));
+      assert.equal(required.includeDescendants, true);
+      assert.equal(rules.academicUnits.find((u) => u.purpose === "RECOMMENDED").unit.id, String(second.id));
+      assert(!JSON.stringify(card).includes(secret));
     },
   );
 }

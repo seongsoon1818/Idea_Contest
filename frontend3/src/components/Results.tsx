@@ -2,7 +2,7 @@ import { live, listPath, type Item, type Profile } from '../lib/live';
 import { getAccountUser } from '../lib/session';
 import { Icon } from '../lib/icons';
 import { useUI, setUI } from '../app/store';
-import { navigate, retryLive, startProfile, setFilters } from '../app/actions';
+import { navigate, openLogin, retryLive, startProfile, setFilters } from '../app/actions';
 import { Card, Empty, Loading } from './Card';
 import { listTypeOf, isRecommendedTab } from './Filters';
 import { useDebounced } from './hooks';
@@ -32,10 +32,10 @@ export function Results({ profile }: { profile: Profile | null }) {
       action="profile" label={<><Icon name="user" /><span>내 정보 입력하기</span></>} icon="spark" onAction={startProfile} />
   );
   if (recommendations && !signedIn) {
-    return <Empty login icon="spark" title="로그인하고 맞춤 추천을 받아보세요" text={<>학년·트랙·관심 분야를 입력하면<br />나에게 맞는 공지와 프로그램을 추천해 드려요.</>} />;
+    return <Empty login icon="spark" title="로그인하고 맞춤 추천을 받아보세요" text={<>학년·트랙·관심 분야를 입력하면<br />나에게 맞는 공지와 프로그램을 추천해 드려요.</>} onAction={openLogin} />;
   }
   if (view === 'saved' && !signedIn) {
-    return <Empty login icon="bookmark" title="로그인하고 MY PICK을 모아보세요" text={<>관심 있는 공지의 북마크를 눌러<br className="mobile-copy" /> 나만의 기회를 모아보세요.</>} />;
+    return <Empty login icon="bookmark" title="로그인하고 MY PICK을 모아보세요" text={<>관심 있는 공지의 북마크를 눌러<br className="mobile-copy" /> 나만의 기회를 모아보세요.</>} onAction={openLogin} />;
   }
   if (recommendations && !profile) {
     const entry = live.peek('/users/me/profile');

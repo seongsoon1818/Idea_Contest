@@ -37,21 +37,15 @@ const cardFields = {
   gradeScope: true,
   academicScope: true,
   targetGrades: {
-    where: { purpose: "REQUIRED" },
-    orderBy: { grade: "asc" },
-    select: { grade: true, purpose: true },
+    orderBy: [{ purpose: "asc" }, { grade: "asc" }],
+    select: { purpose: true, grade: true },
   },
   targetUnits: {
-    where: { purpose: "REQUIRED" },
-    orderBy: { academicUnitId: "asc" },
-    select: {
-      purpose: true,
-      academicUnit: { select: { name: true } },
-      includeDescendants: true,
-    },
+    orderBy: [{ purpose: "asc" }, { academicUnitId: "asc" }],
+    select: { purpose: true, academicUnit: true, includeDescendants: true },
   },
   assets: { ...orderedAssets, where: { kind: "IMAGE" as const } },
-} as const;
+} satisfies Prisma.ProgramRevisionSelect;
 const dateFields = {
   applyStartRaw: true,
   applyStartPrecision: true,
@@ -89,14 +83,6 @@ const detailFields = {
       audienceText: true,
       capacity: true,
     },
-  },
-  targetGrades: {
-    orderBy: [{ purpose: "asc" }, { grade: "asc" }],
-    select: { purpose: true, grade: true },
-  },
-  targetUnits: {
-    orderBy: [{ purpose: "asc" }, { academicUnitId: "asc" }],
-    select: { purpose: true, academicUnit: true, includeDescendants: true },
   },
 } satisfies Prisma.ProgramRevisionSelect;
 
@@ -202,6 +188,7 @@ export function programCard(
       textValue(r.pointsText) ??
       (r.points !== null ? r.points.toString() + "pt" : null),
     targetSummary: targetLabel(r),
+    targetRules: publicTargets(r),
     thumbnail: thumbnailView(r.assets),
     tags: tags(r.tagsJson),
     summaryStatus: "NOT_APPLICABLE",
