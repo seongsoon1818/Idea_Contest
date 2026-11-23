@@ -94,7 +94,7 @@ export function applyTargets(item: Item, rules: any) {
     ? [...new Set(required(rules.grades).map((entry) => GRADE_NUMBER[entry.grade]).filter(Boolean))].sort() : [];
   item.tracks = rules.academicScope === 'RESTRICTED' ? required(rules.academicUnits).map((entry) => entry.unit?.name).filter(Boolean) : [];
   item.trackEligibilityKnown = rules.academicScope !== 'UNKNOWN';
-  // Raw rules for the 대상 cell: grades incl. OTHER (4학년 이상) and units with ids for slot matching.
+  // Raw rules for the 대상 cell: grades incl. OTHER (기타 학년) and units with ids for slot matching.
   item.targetRules = {
     gradeScope: rules.gradeScope || 'UNKNOWN', academicScope: rules.academicScope || 'UNKNOWN',
     grades: required(rules.grades).map((entry) => (entry.grade === 'OTHER' ? 'other' : GRADE_NUMBER[entry.grade])).filter(Boolean) as FactGrade[],
