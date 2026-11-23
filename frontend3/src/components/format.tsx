@@ -1,14 +1,18 @@
 // Text and small pieces shared by cards, detail and comparison (same rules as the design build).
 import type { Item, Profile, Grade, ProgramInfo } from '../lib/live';
 import { cat, sourceUrl } from '../lib/data';
+import { gradeLabel as factGradeLabel, gradeLine, ORIGINAL } from '../lib/cardFacts';
 
 export const statusOf = (i: Item) => i.status;
 export const daysLeft = (i: Item) => i.days ?? Infinity;
-export const gradeLabel = (grade: Grade | null) => (grade === 'other' ? '기타' : `${grade}학년`);
+export const gradeLabel = (grade: Grade | null) => grade === null ? ORIGINAL : factGradeLabel(grade);
 export const fmt = (d: string) => d.slice(5).replace('-', '.');
-export const target = (i: Item) =>
-  !i.grades.length ? '원문 확인'
-    : `${i.grades.length === 4 ? '전 학년' : i.grades.map((g) => g + '학년').join('·')} · ${i.trackEligibilityKnown === false ? '트랙 조건 원문 확인' : i.tracks.length ? i.tracks.map((t) => t + '트랙').join(', ') : '트랙 무관'}`;
+export const target = (i: Item) => {
+  const grades = i.targetRules ? gradeLine(i.targetRules, null)
+    : !i.grades.length ? ORIGINAL : i.grades.length === 4 ? '전 학년' : i.grades.map((g) => g + '학년').join('·');
+  return grades === ORIGINAL ? ORIGINAL
+    : `${grades} · ${i.trackEligibilityKnown === false ? '트랙 조건 원문 확인' : i.tracks.length ? i.tracks.map((t) => t + '트랙').join(', ') : '트랙 무관'}`;
+};
 
 
 export function Badge({ item }: { item: Item }) {
@@ -47,7 +51,7 @@ export function recommendationReason(i: Item, profile: Profile | null) {
   if (i.category && profile.interests.includes(i.category)) return `${cat(i.category)?.short || '선택한'} 관심 분야와 맞아요!`;
   if (reasons.includes('지정 소속 일치')) return '내 트랙을 위한 공고예요!';
   if (e.gradeMatch !== 'MATCH') return '신청 대상을 원문에서 확인해 주세요.';
-  return profile.grade === 'other' ? '전 학년 대상 공고예요!' : `${gradeLabel(profile.grade)}이 참여할 수 있어요!`;
+  return `${gradeLabel(profile.grade)}이 참여할 수 있어요!`;
 }
 
 export const applicationText = (i: Item) =>

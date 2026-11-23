@@ -19,16 +19,14 @@ export interface TargetRules {
 export interface FactSlot { slot: number; id?: string | null; name?: string; kind?: string | null; ancestors?: string[] }
 export interface FactProfile { grade: FactGrade | null; slots: FactSlot[] }
 
-export const gradeLabel = (grade: FactGrade) => (grade === 'other' ? '4학년 이상' : `${grade}학년`);
+export const gradeLabel = (grade: FactGrade) => (grade === 'other' ? '기타 학년' : `${grade}학년`);
 
 export function gradeListLabel(list: FactGrade[]): string {
   const nums = [...new Set((list || []).filter((g): g is 1 | 2 | 3 | 4 => g === 1 || g === 2 || g === 3 || g === 4))].sort((a, b) => a - b);
   const other = (list || []).includes('other');
   if (!nums.length && !other) return ORIGINAL;
   if (other) {
-    if (!nums.length) return '4학년 이상';
-    const run = nums.every((n, i) => n === nums[0] + i) && nums[nums.length - 1] === 4;
-    return run ? `${nums[0]}학년 이상` : `${nums.join('·')}학년 · 4학년 이상`;
+    return nums.length ? `${nums.join('·')}학년 · ${gradeLabel('other')}` : gradeLabel('other');
   }
   return nums.length === 4 ? '전 학년' : `${nums.join('·')}학년`;
 }
