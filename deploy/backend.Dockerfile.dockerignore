@@ -9,3 +9,7 @@
 !src/
 !src/**
 src/generated/
+**/.env
+**/.env.*
+**/*.pem
+**/*.key

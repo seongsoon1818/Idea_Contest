@@ -1,10 +1,18 @@
-hsupick.cloud, http://:8080 {
+{$SITE_DOMAIN:hsupick.cloud}, http://:8080 {
 	encode zstd gzip
+	handle /healthz {
+		respond "ok" 200
+	}
 	handle /api/* {
 		reverse_proxy api:3000
 	}
 	handle {
 		root * /srv
-		file_server
+		route {
+			try_files {path} /index.html
+			@entry path /index.html /notification-sw.js /campus-town.json
+			header @entry Cache-Control "no-cache"
+			file_server
+		}
 	}
 }

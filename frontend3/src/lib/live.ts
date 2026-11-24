@@ -23,6 +23,7 @@ export interface Item {
   status: Status; days: number | null; start: string | null; deadline: string | null; startText: string; deadlineText: string;
   deadlineTime: string | null; points: number | null; targetRules?: TargetRules;
   benefit: string; targetText: string; tags: string[]; publishedAt: string; department: string; originalUrl: string;
+  noticeBenefitSummary?: string;
   bookmark: Bookmark | null; recommendation: Recommendation | null;
   grades: number[]; tracks: string[]; trackEligibilityKnown: boolean; targetsLoaded: boolean;
   detailed?: boolean; overview?: string; audienceText?: string; applicationLines?: string[]; eventAt: string; activityLines?: string[];
@@ -81,6 +82,8 @@ export function toItem(card: any, previous?: Item): Item {
     // A list card can carry less eligibility detail than the detail response; keep the richer one.
     recommendation: previous?.detailed && card.recommendation?.eligibility?.status === 'UNKNOWN' && previous.recommendation ? previous.recommendation : card.recommendation ?? null,
   };
+  // Keep the notice card's summary separate from the detailed benefits and conditions.
+  if (card.type === 'notice') item.noticeBenefitSummary = text(card.benefitSummary).replace(/\s+/g, ' ');
   if (!previous?.targetsLoaded) Object.assign(item, { grades: [], tracks: [], trackEligibilityKnown: true, targetsLoaded: false });
   if (!previous?.detailed) Object.assign(item, { preparations: [], eventAt: '', images: [], attachments: [], warnings: [] });
   if (card.targetRules) applyTargets(item, card.targetRules);
