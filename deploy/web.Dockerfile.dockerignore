@@ -1,0 +1,17 @@
+**
+!frontend3/
+!frontend3/package.json
+!frontend3/package-lock.json
+!frontend3/index.html
+!frontend3/tsconfig.json
+!frontend3/vite.config.ts
+!frontend3/src/
+!frontend3/src/**
+!frontend3/public/
+!frontend3/public/**
+!deploy/
+!deploy/Caddyfile
+**/.env
+**/.env.*
+**/*.pem
+**/*.key

@@ -1,8 +1,14 @@
 name: hsupick
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
 services:
   db:
     image: mysql:8.4
     restart: unless-stopped
+    logging: *logging
     command: ["--innodb-buffer-pool-size=256M", "--max-connections=60", "--binlog-expire-logs-seconds=259200"]
     environment:
       MYSQL_DATABASE: idea_contest
@@ -18,11 +24,14 @@ services:
       retries: 10
       start_period: 60s
   api:
+    image: hsupick-api:${IMAGE_TAG:-latest}
     build:
       context: ../backend
       dockerfile: ../deploy/backend.Dockerfile
     restart: unless-stopped
+    logging: *logging
     init: true
+    stop_grace_period: 30s
     depends_on:
       db:
         condition: service_healthy
@@ -30,8 +39,8 @@ services:
       NODE_ENV: production
       HOST: 0.0.0.0
       PORT: "3000"
-      DATABASE_URL: mysql://hsupick:${DB_PASSWORD}@db:3306/idea_contest
-      ALLOWED_ORIGINS: https://hsupick.cloud
+      DATABASE_URL: ${DATABASE_URL:-mysql://hsupick:${DB_PASSWORD}@db:3306/idea_contest?allowPublicKeyRetrieval=true}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://hsupick.cloud}
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
@@ -43,10 +52,19 @@ services:
       retries: 3
       start_period: 20s
   web:
+    image: hsupick-web:${IMAGE_TAG:-latest}
     build:
-      context: ../frontend/dist
-      dockerfile: ../../deploy/web.Dockerfile
+      context: ..
+      dockerfile: deploy/web.Dockerfile
+      args:
+        PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-https://hsupick.cloud}
     restart: unless-stopped
+    logging: *logging
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN:-hsupick.cloud}
     ports:
       - "80:80"
       - "443:443"
@@ -57,15 +75,23 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - certificates:/data
       - caddy_config:/config
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
   cloudflared:
     image: cloudflare/cloudflared:2026.11.0
     profiles: ["tunnel"]
     restart: unless-stopped
+    logging: *logging
     command: ["tunnel", "--no-autoupdate", "run"]
     environment:
-      - TUNNEL_TOKEN
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:-}
     depends_on:
-      - web
+      web:
+        condition: service_healthy
     networks:
       - tunnel
 networks:
