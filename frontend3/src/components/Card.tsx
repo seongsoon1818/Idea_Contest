@@ -24,27 +24,48 @@ export function Empty({ title, text, action, label, icon = 'search', onAction, l
 export const Loading = () => <div className="result-line" role="status"><span>불러오는 중…</span></div>;
 
 /** One fact cell: full lines, else the narrow form, else 원문 확인 (re-checked on content change and window resize). */
-function FactCell({ label, icon, lines, full, className, compact = null }: { label: string; icon: string; lines: string[]; full: string; className?: string; compact?: string[] | null }) {
+function FactCell({ label, icon, lines, full, className, compact = null, wrapNoticeBenefit = false }: { label: string; icon: string; lines: string[]; full: string; className?: string; compact?: string[] | null; wrapNoticeBenefit?: boolean }) {
   const ref = useRef<HTMLSpanElement>(null);
   const [stage, setStage] = useState(0); // 0 full, 1 narrow form, 2 원문 확인
   const [size, setSize] = useState(0);
-  const key = lines.join('\n') + '|' + (compact || []).join('\n');
+  const key = lines.join('\n') + '|' + (compact || []).join('\n') + '|' + wrapNoticeBenefit;
   useLayoutEffect(() => { setStage(0); }, [key, size]);
   useLayoutEffect(() => {
     const el = ref.current;
     if (stage === 2 || !el || !el.getClientRects().length) return;
-    if ([...el.children].some((line) => line.scrollWidth > line.clientWidth + 1)) setStage(stage === 0 && compact?.length ? 1 : 2);
+    if ([...el.children].some((line) => line.scrollWidth > line.clientWidth + 1 || (wrapNoticeBenefit && line.scrollHeight > line.clientHeight + 1))) setStage(stage === 0 && compact?.length ? 1 : 2);
   });
   useEffect(() => {
     const onResize = () => setSize((n) => n + 1);
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
+  useEffect(() => {
+    if (!wrapNoticeBenefit) return;
+    let alive = true;
+    const recheck = () => { if (alive) setSize((n) => n + 1); };
+    const container = ref.current?.parentElement;
+    let width = container?.getBoundingClientRect().width;
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry && entry.contentRect.width !== width) {
+        width = entry.contentRect.width;
+        recheck();
+      }
+    });
+    if (container) observer.observe(container);
+    void document.fonts.ready.then(recheck);
+    document.fonts.addEventListener('loadingdone', recheck);
+    return () => {
+      alive = false;
+      observer.disconnect();
+      document.fonts.removeEventListener('loadingdone', recheck);
+    };
+  }, [wrapNoticeBenefit]);
   return (
     <div className="fact-cell">
       <dt><Icon name={icon} /> {label}</dt>
       <dd className={className} title={full} aria-label={`${label}: ${full}`}>
-        <span className="card-fact-preview" ref={ref}>{(stage === 0 ? lines : stage === 1 && compact ? compact : [ORIGINAL]).map((line, n) => <span className="fact-line" key={n}>{line}</span>)}</span>
+        <span className={`card-fact-preview${wrapNoticeBenefit ? ' notice-benefit-preview' : ''}`} ref={ref}>{(stage === 0 ? lines : stage === 1 && compact ? compact : [ORIGINAL]).map((line, n) => <span className="fact-line" key={n}>{line}</span>)}</span>
       </dd>
     </div>
   );
@@ -72,11 +93,12 @@ function factsProfile(profile: Profile | null): FactProfile | null {
 /** 대상 · 마감 · 혜택 cells; the rules live in lib/cardFacts.ts (same as frontend2). */
 export function CardFacts({ item, profile }: { item: Item; profile: Profile | null }) {
   const who = !item.targetsLoaded ? ['확인 중'] : targetLines(factsTarget(item), factsProfile(profile));
+  const benefit = item.type === 'notice' ? item.noticeBenefitSummary || ORIGINAL : benefitLine(item.type, item.points);
   return (
     <dl className="card-facts">
       <FactCell label="대상" icon="user" lines={who} full={target(item)} className="fact-target" />
       <FactCell label="마감" icon="calendar" lines={deadlineLines(item.deadline, item.deadlineTime)} compact={deadlineCompact(item.deadline, item.deadlineTime)} full={item.deadlineText || '원문 확인'} />
-      <FactCell label="혜택" icon="exclamation" lines={[benefitLine(item.type, item.points)]} compact={benefitCompact(item.type, item.points)} full={item.benefit || '미기재 · 원문 확인'} />
+      <FactCell label="혜택" icon="exclamation" lines={[benefit]} compact={benefitCompact(item.type, item.points)} full={item.benefit || '미기재 · 원문 확인'} wrapNoticeBenefit={item.type === 'notice'} />
     </dl>
   );
 }
