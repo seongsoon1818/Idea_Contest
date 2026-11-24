@@ -998,6 +998,15 @@ dialog.onboarding-dialog[open]{display:flex;flex-direction:column}
 /* React mount point: children keep their original page-level layout. */
 #root{display:contents}
 .campus-town-note .note-icon{font-size:22px;margin-bottom:6px}.campus-town-eyebrow{display:block;font-size:10px;font-weight:750;letter-spacing:.6px;color:var(--blue);margin-bottom:2px}.campus-town-note{letter-spacing:-1px}.campus-town-note p{margin:2px 0 0}.campus-town-btn{display:flex;align-items:center;justify-content:center;gap:4px;width:100%;min-height:36px;margin-top:12px;border-radius:9px;background:var(--blue);color:#fff;font-size:12px;font-weight:650;letter-spacing:-1px}a.campus-town-btn:hover{background:#1648d6}.campus-town-btn:disabled{background:rgba(255,255,255,.55);border:1px solid rgba(255,255,255,.9);box-shadow:0 4px 14px rgba(36,88,232,.1),inset 0 1px 0 #fff;-webkit-backdrop-filter:blur(10px) saturate(140%);backdrop-filter:blur(10px) saturate(140%);color:#6c7a96;opacity:1;cursor:default}
+/* Match the sidebar breakpoint so CAMPUS TOWN remains reachable on mobile MY PAGE. */
+.campus-town-profile{display:none}
+@media(max-width:800px){
+ .campus-town-profile{display:grid;grid-template-columns:24px minmax(0,1fr) auto;grid-template-areas:"icon title action" "icon description action";align-items:center;gap:4px 12px;margin:24px 0 0;padding:16px;min-height:72px}
+ .campus-town-profile .note-icon{grid-area:icon;font-size:24px;line-height:1;margin:0}
+ .campus-town-profile .campus-town-eyebrow{grid-area:title;font-size:11px;margin:0}
+ .campus-town-profile p{grid-area:description;min-width:0;margin:0;font-size:11px;line-height:1.5;word-break:keep-all}
+ .campus-town-profile .campus-town-btn{grid-area:action;width:auto;min-height:40px;margin:0;padding:0 12px;white-space:nowrap}
+}
 .card-fact-preview>.fact-line{display:block;white-space:nowrap;overflow:hidden;max-width:100%}
 .card-facts .card-fact-preview{font-size:max(10px,calc(1em - 1px))}
 /* Notice benefits can use the existing two-line space; overflowing text is replaced by FactCell. */

@@ -16,7 +16,7 @@ npm run preview    # 빌드 결과 확인
 
 ## CAMPUS TOWN 카드 주소
 
-사이드바 하단 CAMPUS TOWN 카드의 이동 주소는 `dist/campus-town.json`의 `url`에 넣습니다. 빌드 없이 이 파일만 바꿔 배포하면 됩니다. 다음 빌드에도 같은 값을 쓰려면 원본인 `public/campus-town.json`도 함께 바꿔 주세요.
+사이드바 하단 CAMPUS TOWN 카드와 모바일 MY PAGE 배너의 이동 주소는 `dist/campus-town.json`의 `url`에 넣습니다. 빌드 없이 이 파일만 바꿔 배포하면 됩니다. 다음 빌드에도 같은 값을 쓰려면 원본인 `public/campus-town.json`도 함께 바꿔 주세요.
 
 ```json
 { "url": "https://캠퍼스타운-주소" }
@@ -24,6 +24,7 @@ npm run preview    # 빌드 결과 확인
 
 - 비어 있거나 `https://`가 아니거나 파일을 읽지 못하면 버튼은 `오픈 예정`(비활성)으로 보입니다.
 - `https://` 주소가 있으면 `체험하기 ↗` 버튼이 새 탭에서 열립니다(`rel="noopener noreferrer"`).
+- 사이드바가 숨겨지는 800px 이하에서는 MY PAGE의 내 정보와 알림 설정 사이에 가로형 배너를 표시합니다. 로그인 여부와 관계없이 사용할 수 있으며, 데스크톱과 같은 문구·URL을 사용합니다.
 - 브라우저 캐시 없이 읽으므로 파일을 바꿔 배포하면 다음 방문부터 반영됩니다.
 
 ## 배포

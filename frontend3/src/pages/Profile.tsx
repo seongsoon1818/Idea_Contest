@@ -7,6 +7,7 @@ import { accountDialog, navigate, openLogin, openModal, startProfile } from '../
 import { notificationCenter, enablePush, markNotificationsRead, updateNotificationSetting } from '../app/notifications';
 import { toast } from '../app/actions';
 import { gradeLabel } from '../components/format';
+import { CampusTownCard } from '../components/CampusTownCard';
 import { PageTitle } from './Home';
 
 export function NotificationSettings() {
@@ -52,6 +53,7 @@ export function ProfilePage({ profile }: { profile: Profile | null }) {
             <div className="profile-edit-actions"><button className="primary" data-login-action="open" onClick={openLogin}>로그인하기 <Icon name="arrow" /></button></div>
           </div>
         </section>
+        <CampusTownCard variant="profile" />
         <NotificationSettings />
       </>
     );
@@ -76,6 +78,7 @@ export function ProfilePage({ profile }: { profile: Profile | null }) {
           <div className="profile-edit-actions"><button className="primary" data-action="profile" onClick={startProfile}>{profile ? '내 정보 수정' : '내 정보 입력하기'} <Icon name="arrow" /></button></div>
         </div>
       </section>
+      <CampusTownCard variant="profile" />
       <NotificationSettings />
       <section className="account-management login-settings-card" aria-labelledby="login-management-title">
         <h2 id="login-management-title">로그인 관리</h2>
