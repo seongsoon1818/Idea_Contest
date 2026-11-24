@@ -93,14 +93,16 @@ export function boundaryTime(boundary: { precision?: string; value?: string | nu
   return new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(at);
 }
 
-// "10pt" / "2.5 pt" → number; anything else → null.
-export function pointsFrom(text: unknown): number | null {
-  const m = /^\s*(\d+(?:\.\d+)?)\s*pt\s*$/i.exec(String(text || ''));
-  return m ? Number(m[1]) : null;
+// Design display: prefer the API amount, otherwise use the first P/pt amount
+// in the description, matching the existing program detail screen.
+export function pointsFrom(text: unknown, amount?: unknown): number | null {
+  if ((typeof amount === 'number' || typeof amount === 'string') && /^\d+(?:\.\d+)?$/.test(String(amount)) && Number.isFinite(Number(amount))) return Number(amount);
+  const m = /(\d+(?:\.\d+)?)\s*p(?:t)?\b/i.exec(typeof text === 'string' ? text : '');
+  return m && Number.isFinite(Number(m[1])) ? Number(m[1]) : null;
 }
 
 export function benefitLine(type: string, points: number | null | undefined): string {
-  return type === 'program' && typeof points === 'number' && Number.isFinite(points) && points > 0 ? `비교과 ${Number(points)}pt` : ORIGINAL;
+  return type === 'program' && typeof points === 'number' && Number.isFinite(points) && points >= 0 ? `비교과 ${Number(points)}pt` : ORIGINAL;
 }
 
 // Narrow form of the benefit: "비교과" / "10pt". null for 원문 확인.

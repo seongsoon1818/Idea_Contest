@@ -70,7 +70,7 @@ export function toItem(card: any, previous?: Item): Item {
     start: day(card.applicationStart), deadline: day(card.deadline),
     startText: raw(card.applicationStart), deadlineText: raw(card.deadline),
     deadlineTime: boundaryTime(card.deadline),
-    points: card.type === 'program' ? pointsFrom(card.benefitSummary) : null,
+    points: card.type === 'program' ? pointsFrom(card.benefitSummary, card.points) : null,
     benefit: previous?.detailed ? previous.benefit : text(card.benefitSummary),
     targetText: text(card.targetSummary),
     tags: Array.isArray(card.tags) ? card.tags : [],
@@ -137,12 +137,11 @@ export function toDetailItem(data: any, previous?: Item): Item {
     warnings: (data.warnings || []).map((w: any) => text(w.message)).filter(Boolean),
   });
   if (item.type === 'program') {
-    const points = info?.points != null && Number.isFinite(Number(info.points)) ? String(Number(info.points))
-      : (text(info?.pointsText).match(/(\d+(?:\.\d+)?)\s*(?:p|pt)\b/i)?.[1] || '');
+    const points = pointsFrom(info?.pointsText, info?.points);
     item.publicInfo = info ? {
       summary: text(info.summary) || item.subtitle, audience: text(info.audience) || item.targetText,
       applicationPeriod: text(info.applicationPeriod) || range(card.applicationStart, card.deadline),
-      points, department: text(info.department), location: text(info.location), format: text(info.format),
+      points: points === null ? '' : String(points), department: text(info.department), location: text(info.location), format: text(info.format),
     } : null;
   }
   return item;

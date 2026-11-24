@@ -184,6 +184,7 @@ export function programCard(
     originalUrl: programUrl(p.canonicalUrl, p.externalId),
     applicationStatus: r.applicationStatus,
     ...scheduleView(row),
+    points: r.points?.toFixed(2) ?? null,
     benefitSummary:
       textValue(r.pointsText) ??
       (r.points !== null ? r.points.toString() + "pt" : null),

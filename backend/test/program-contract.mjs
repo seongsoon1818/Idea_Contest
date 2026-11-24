@@ -222,8 +222,10 @@ export async function programContract(t, app, db, http) {
       assert.equal(open.items[0].noticeCategory, null);
       assert.equal(open.items[0].summaryStatus, "NOT_APPLICABLE");
       assert.equal(open.items[0].benefitSummary, "10pt");
+      assert.equal(open.items[0].points, "10.00");
       for (const card of open.items) {
         const d = (await http("GET", "/programs/" + card.id, 200)).data;
+        assert.equal(card.points, d.publicInfo.points);
         assert.deepEqual(card.targetRules, d.targetRules);
         assert.deepEqual(d.card.targetRules, d.targetRules);
       }
@@ -318,6 +320,7 @@ export async function programContract(t, app, db, http) {
       );
       const m = await detail(multi);
       assert.equal(m.publicInfo.points, null);
+      assert.equal(m.card.points, null);
       assert.equal(m.card.benefitSummary, multi.r.pointsText);
       assert.equal(m.card.deadline.value, day(2));
       assert.equal(m.card.targetSummary, "4학년 · 소속 제한 없음");
@@ -342,7 +345,9 @@ export async function programContract(t, app, db, http) {
       assert.equal(m.images[0].url, null);
       assert.equal(m.card.thumbnail.url, m.images[1].url);
       assert.equal(m.attachments[0].sizeBytes, "512");
-      assert.equal((await detail(missing)).publicInfo.points, "0.00");
+      const zeroPoints = await detail(missing);
+      assert.equal(zeroPoints.publicInfo.points, "0.00");
+      assert.equal(zeroPoints.card.points, "0.00");
       assert.equal((await detail(missing)).card.benefitSummary, "0pt");
       assert.equal((await detail(missing)).publicInfo.summary, null);
       assert.equal((await detail(missing)).card.originalUrl, null);
